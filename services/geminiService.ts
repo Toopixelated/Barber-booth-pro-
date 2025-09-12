@@ -46,10 +46,7 @@ async function callGeminiWithRetry(parts: Part[]): Promise<GenerateContentRespon
         try {
             return await ai.models.generateContent({
                 model: 'gemini-2.5-flash-image-preview',
-                contents: [{ parts }],
-                config: {
-                    responseModalities: [Modality.IMAGE, Modality.TEXT],
-                }
+                contents: { parts },
             });
         } catch (error) {
             console.error(`Error calling Gemini API (Attempt ${attempt}/${maxRetries}):`, error);
@@ -163,26 +160,20 @@ export async function generateFourUpImage(
 ): Promise<string> {
     
     const parts: Part[] = [];
-    const assetKeyLines: string[] = [];
     let hairstyleInstructions = '';
 
-    // ASSET 1: Base Image
+    // First image is always the base user photo
     parts.push(dataUrlToPart(baseImage.dataUrl));
-    assetKeyLines.push(`- ASSET 1: The user's original photo. This is the source for the person's identity.`);
 
     // Hairstyle Source
-    let hairstyleReferenceKey = '';
     if (options.referenceImage) {
         parts.push(dataUrlToPart(options.referenceImage));
-        hairstyleReferenceKey = `ASSET ${parts.length}`;
-        assetKeyLines.push(`- ${hairstyleReferenceKey}: An image showing the target hairstyle.`);
-
-        hairstyleInstructions = `Apply the hairstyle from ${hairstyleReferenceKey}.`;
+        hairstyleInstructions = `Apply the hairstyle from the second image provided.`;
         if (options.referenceDescription?.trim()) {
-            hairstyleInstructions += ` Description: "${options.referenceDescription.trim()}".`;
+            hairstyleInstructions += ` It is described as: "${options.referenceDescription.trim()}".`;
         }
         if (options.modification?.trim()) {
-            hairstyleInstructions += ` Modification: "${options.modification.trim()}".`;
+            hairstyleInstructions += ` Apply this modification: "${options.modification.trim()}".`;
         }
     } else if (options.description?.trim()) {
         hairstyleInstructions = `The hairstyle should be: "${options.description.trim()}".`;
@@ -191,37 +182,28 @@ export async function generateFourUpImage(
     }
     
     if (options.hairColor) {
-        hairstyleInstructions += `\n- The final hair color MUST be exactly this hex code: ${options.hairColor}.`;
+        hairstyleInstructions += ` The final hair color MUST be exactly this hex code: ${options.hairColor}.`;
     }
 
     const finalPrompt = `
-**PRIMARY GOAL:** Create a single, seamless 2x2 grid image of the person from ASSET 1 with a new hairstyle.
+Task: Edit the person in the first provided image to give them a new hairstyle.
 
-**SUBJECT:** The person from ASSET 1.
-
-**HAIRSTYLE INSTRUCTIONS:**
+Hairstyle Details:
 ${hairstyleInstructions}
 
-**GRID COMPOSITION:**
-- Top-Left: Front view.
-- Top-Right: Left side profile. A perfect 90-degree turn showing the subject's complete left side.
-- Bottom-Left: Right three-quarter profile. A 45-degree turn showing the right side of the subject's face and head. **IMPORTANT: This view MUST be the mirror opposite of the top-right profile.**
-- Bottom-Right: A direct view of the back of the head.
+Output Requirements:
+Generate a single, seamless 2x2 grid image showing the person with their new hairstyle from four different angles. The background should be a simple, consistent studio setting.
 
-**MANDATORY RULES:**
-1.  **Identity Preservation:** The subject's face MUST be an exact match to ASSET 1 in all views where it's visible. The lighting on the face must be consistent with the overall scene lighting.
-2.  **Consistency:** The hairstyle, hair color, lighting, and a simple studio background MUST be perfectly uniform across all four views. The front and back views must be rendered under the exact same lighting conditions and against the same background as the side profiles.
-3.  **Quality:** The output must be photorealistic.
+Grid Composition:
+- Top-Left: Front view (must match the original face perfectly).
+- Top-Right: Left Side profile (a 90-degree turn. From the camera's perspective, the subject's nose should be facing towards the left side of the screen).
+- Bottom-Left: Right Diagonal profile (a 45-degree turn. From the camera's perspective, the subject's nose should be facing towards the right side of the screen, ensuring it's a distinct view from the left profile).
+- Bottom-Right: Back view.
 
-**NEGATIVE PROMPT (AVOID THESE):**
-- DO NOT add borders, lines, or spacing between grid images.
-- DO NOT add text, labels, or watermarks.
-- DO NOT distort facial features.
-- DO NOT change the subject's ethnicity, gender, or apparent age.
-- DO NOT include hands, shoulders, or any objects. Focus on the head and hairstyle.
-
-**ASSET DEFINITIONS:**
-${assetKeyLines.join('\n')}
+Critical Rules:
+- Identity Preservation: The person's face must be an exact match to the original image.
+- Consistency: The hairstyle, lighting, and background must be uniform across all four views.
+- No Extras: Do not add borders, text, or watermarks. Do not include hands or shoulders.
     `.trim();
     
     parts.push({ text: finalPrompt });
@@ -265,34 +247,21 @@ export async function generateHairstyleVideo(
     onProgress: (message: string) => void
 ): Promise<string> {
     const prompt = `
-You are an expert video generation AI specializing in photorealistic human portraits. Your task is to create a seamless 360-degree "turntable" video of a person with a new hairstyle, based on a provided source image.
+Create a seamless, photorealistic, 360-degree turntable video of the person in the provided image.
 
-**Source Image & Hairstyle:**
-The input image shows the person from a direct front-facing view with their new hairstyle, which is described as: "${hairstyleDescription}". This front view is the PRIMARY source of truth for the person's identity and the hairstyle's appearance.
+The new hairstyle is: "${hairstyleDescription}".
 
-**Video Objective & Camera Work:**
--   **Movement:** Create a slow, smooth, continuous 360-degree horizontal rotation of the person's head. The movement should be a perfect "orbit" effect, as if the camera is circling the person.
--   **Sequence:** The video MUST start with the person facing the camera (matching the source image perfectly). It should then rotate smoothly to show their right profile, the back of their head, their left profile, and finally return seamlessly to the starting front view.
--   **Camera Angle:** Maintain a consistent eye-level or slightly elevated "portrait studio" camera angle throughout the rotation. Avoid any tilting, zooming, or shaky camera motion.
+Cost & Quality Optimization:
+- Duration: The video must be a quick, smooth rotation, approximately 3-4 seconds long.
+- Resolution: Render at a high-quality standard definition (720p) for optimal web playback and cost.
 
-**Critical Requirements:**
-1.  **Identity Preservation & Refinement:** The person's face, facial features, skin tone, and head shape MUST remain identical to the source image throughout the entire video. To account for potential AI distortion that can widen features, render the person's face and jawline with a very subtle slimming effect. The result should look natural and flattering, while remaining true to the person's identity. This is the most important rule.
-2.  **Hairstyle Consistency & In-painting:**
-    -   The hairstyle from the source image must be rendered realistically from all angles.
-    -   You must intelligently "in-paint" or generate the sides and back of the hairstyle. The generated sides and back must be a logical and seamless continuation of the front view's style, length, color, and texture. For example, if the front shows a sharp fade, the back must also have a convincing fade. If it's long and curly, the back must reflect that volume and curl pattern.
-3.  **Photorealism:** The final video must be indistinguishable from a real-world, high-quality studio video recording. Pay close attention to how light interacts with the hair from different angles.
-4.  **Setting:** The background must be a clean, simple, out-of-focus studio or barbershop environment, consistent with the source image.
-5.  **CRITICAL FRAMING AND COMPOSITION RULE: DO NOT CROP THE HEAD.**
-    -   This is the most important artistic instruction. The framing must be a **"medium long shot" (also known as a "plan américain" or "cowboy shot")**, capturing the person from roughly the knees up. The overall feeling should be zoomed out, not a tight portrait.
-    -   **ABSOLUTE REQUIREMENT FOR HEADROOM:** There MUST be a very large amount of empty space above the person's head. The highest point of the hair must not, under any circumstances, come close to the top edge of the video frame.
-    -   **VERTICAL COMPOSITION:** To ensure proper headroom, the person's entire head (from chin to the top of the hair) should occupy **no more than 25%** of the total vertical height of the frame.
-    -   **ZERO CROPPING TOLERANCE:** At no point during the 360-degree rotation should any part of the hair or head be cropped or exit the frame. This rule is absolute and must be followed precisely to accommodate hairstyles with significant volume. A failure to adhere to this headroom rule will ruin the video.
-    -   **CENTERED SUBJECT:** The person must remain perfectly centered horizontally in the frame for the entire duration of the video.
-
-**Output Requirements:**
-- A single, perfectly looping, high-quality video file.
-- Rendered at the highest possible resolution (ideally HD 1080p or higher).
-- Sharp, clear, and free of compression artifacts.
+Core Requirements:
+- The rotation must start and end at the front-facing view.
+- The person's facial identity from the source image must be perfectly preserved.
+- The hairstyle must be rendered consistently from all angles.
+- The final video must be a square (1:1 aspect ratio) and framed as a "head and shoulders" portrait.
+- The background must be a simple, clean, out-of-focus studio setting.
+- Do not crop any part of the head or hair.
 `.trim();
 
     const match = hairstyleImage.dataUrl.match(/^data:(image\/\w+);base64,(.*)$/);

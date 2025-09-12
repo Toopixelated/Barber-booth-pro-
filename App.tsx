@@ -17,16 +17,24 @@ import { useStore, HistoryItem, GeneratedImage } from './store';
 import { Button } from './components/ui/button';
 import { Card, CardContent } from './components/ui/card';
 // FIX: Added 'Download' to the import from lucide-react to fix usage error.
-import { Camera, FileImage, Palette, Wand2, Replace, Trash2, Share2, Download, History } from 'lucide-react';
+import { Camera, FileImage, Wand2, Replace, Trash2, Share2, Download, History } from 'lucide-react';
 import ColorPicker from './components/ColorPicker';
 import toast from 'react-hot-toast';
 import ShareMenu from './components/ShareMenu';
-import { attemptShare } from './lib/shareUtils';
 // FIX: Imported the LoadingSpinner component to resolve reference error.
 import LoadingSpinner from './components/LoadingSpinner';
+// FIX: Import 'attemptShare' to resolve 'Cannot find name' error.
+import { attemptShare } from './lib/shareUtils';
 
 export type Angle = 'front' | 'left' | 'right' | 'back';
 export const ANGLES: Angle[] = ['front', 'left', 'right', 'back'];
+
+const angleCaptions: Record<Angle, string> = {
+    front: 'Front',
+    left: 'Left Side',
+    right: 'Right Diagonal',
+    back: 'Back',
+};
 
 const PROMPT_IDEAS = [
     "A vibrant, rainbow-colored mohawk", "Classic 1950s greaser pompadour", "Long, flowing elven braids with silver clasps",
@@ -51,6 +59,7 @@ function App() {
     const [isCameraOpen, setIsCameraOpen] = useState(false);
     const [isDownloading, setIsDownloading] = useState<boolean>(false);
     const [isSharing, setIsSharing] = useState<boolean>(false);
+    const [isProcessingUpload, setIsProcessingUpload] = useState<boolean>(false);
 
     const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
     const [isFetchingSuggestions, setIsFetchingSuggestions] = useState(false);
@@ -82,10 +91,16 @@ function App() {
     }, [state.hairstyleDescription, isHairstyleInputFocused]);
 
     const handleFileSelected = (file: File, type: 'client' | 'reference') => {
+        setIsProcessingUpload(true);
         const reader = new FileReader();
         reader.onloadend = () => {
             setEditingImage(reader.result as string);
             setEditingImageType(type);
+            setIsProcessingUpload(false);
+        };
+        reader.onerror = () => {
+            toast.error("Failed to read the selected file.");
+            setIsProcessingUpload(false);
         };
         reader.readAsDataURL(file);
     };
@@ -467,11 +482,11 @@ function App() {
                                     <PolaroidCard
                                         key={angle}
                                         angle={angle}
-                                        caption={angle.charAt(0).toUpperCase() + angle.slice(1)}
+                                        caption={angleCaptions[angle]}
                                         status={result?.status ?? 'pending'}
                                         imageUrl={result?.url}
                                         error={result?.error}
-                                        onRegenerate={() => { /* Implement single angle regeneration if needed */ }}
+                                        onRegenerate={handleRegenerateAll}
                                     />
                                 );
                             })}
@@ -558,8 +573,13 @@ function App() {
             <header className="fixed top-0 left-0 right-0 bg-neutral-950/50 backdrop-blur-sm p-3 z-50 border-b border-neutral-800">
                 <div className="max-w-screen-xl mx-auto flex justify-between items-center px-4">
                     <div className="flex items-center gap-3">
-                        <div className="bg-gradient-to-br from-pink-500 to-purple-600 p-2 rounded-lg">
-                            <Palette className="w-6 h-6 text-white"/>
+                        <div
+                            className="relative w-12 h-12 flex items-center justify-center rounded-xl bg-gradient-to-br from-pink-500/80 to-purple-600/80 shadow-md overflow-hidden"
+                            role="img"
+                            aria-label="Barber Booth Pro Logo"
+                        >
+                            <span className="absolute text-4xl transform -rotate-[20deg] -translate-x-1.5 translate-y-0.5" aria-hidden="true">✂️</span>
+                            <span className="absolute text-4xl transform rotate-[20deg] translate-x-1" aria-hidden="true">💈</span>
                         </div>
                         <h1 className="text-2xl font-bold tracking-tight">Barber <span className="text-pink-400">Booth</span> Pro</h1>
                     </div>
@@ -581,6 +601,16 @@ function App() {
             <ShareMenu />
 
             <AnimatePresence>
+                {isProcessingUpload && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex flex-col items-center justify-center"
+                    >
+                        <LoadingSpinner message="Processing image..." />
+                    </motion.div>
+                )}
                 {editingImage && editingImageType && (
                     <ImageEditor
                         imageSrc={editingImage}
@@ -597,10 +627,33 @@ function App() {
             <AnimatePresence>
                 {isUploadOptionsOpen && (
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setIsUploadOptionsOpen(false)}>
-                         <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }} onClick={e => e.stopPropagation()} className="bg-neutral-900 rounded-lg p-6 w-full max-w-xs space-y-4 border border-neutral-700">
-                             <h3 className="text-center font-semibold text-lg">Upload Image</h3>
-                            <Button onClick={handleSelectFile} variant="secondary" className="w-full"><FileImage className="mr-2 h-4 w-4"/>From File</Button>
-                            <Button onClick={handleTakePhoto} variant="secondary" className="w-full"><Camera className="mr-2 h-4 w-4"/>Take Photo</Button>
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 20 }}
+                            onClick={e => e.stopPropagation()}
+                            className="bg-neutral-900 rounded-xl p-6 w-full max-w-sm border border-neutral-700"
+                        >
+                            <h3 className="text-center font-semibold text-xl text-white mb-2">Choose Source</h3>
+                            <p className="text-center text-sm text-neutral-400 mb-6">Select a photo to get started.</p>
+                            <div className="grid grid-cols-1 gap-4">
+                                <button
+                                    onClick={handleSelectFile}
+                                    className="group flex flex-col items-center justify-center p-6 bg-neutral-800 rounded-lg border border-neutral-700/80 hover:bg-neutral-700/60 hover:border-pink-500/50 transition-all duration-300 transform hover:-translate-y-1"
+                                >
+                                    <FileImage className="w-10 h-10 mb-3 text-pink-400 transition-transform group-hover:scale-110"/>
+                                    <span className="font-semibold text-white">From File</span>
+                                    <span className="text-xs text-neutral-400 mt-1">Choose from your device</span>
+                                </button>
+                                <button
+                                    onClick={handleTakePhoto}
+                                    className="group flex flex-col items-center justify-center p-6 bg-neutral-800 rounded-lg border border-neutral-700/80 hover:bg-neutral-700/60 hover:border-pink-500/50 transition-all duration-300 transform hover:-translate-y-1"
+                                >
+                                    <Camera className="w-10 h-10 mb-3 text-indigo-400 transition-transform group-hover:scale-110"/>
+                                    <span className="font-semibold text-white">Take Photo</span>
+                                    <span className="text-xs text-neutral-400 mt-1">Use your camera</span>
+                                </button>
+                            </div>
                         </motion.div>
                     </motion.div>
                 )}

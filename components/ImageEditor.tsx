@@ -56,31 +56,27 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, onSave, onCancel, t
     const imgRef = useRef<HTMLImageElement>(null);
     const previewCanvasRef = useRef<HTMLCanvasElement>(null);
     const [crop, setCrop] = useState<Crop>();
-    const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
+    const [completedCrop, setCompletedCrop] = useState<PixelCrop | null>(null);
     const [rotation, setRotation] = useState(0);
 
     const onImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
         const { width, height } = e.currentTarget;
         const initialCrop = centerCrop(makeAspectCrop({ unit: '%', width: 90 }, 1, width, height), width, height);
         setCrop(initialCrop);
-        setCompletedCrop({
-            x: (width * initialCrop.x) / 100,
-            y: (height * initialCrop.y) / 100,
-            width: (width * initialCrop.width) / 100,
-            height: (height * initialCrop.height) / 100,
-            unit: 'px',
-        });
     };
     
     const handleSaveCrop = () => {
         const image = imgRef.current;
         const canvas = previewCanvasRef.current;
-        if (!crop || !image || !canvas || !crop.width || !crop.height) return;
+        if (!completedCrop || !image || !canvas || !completedCrop.width || !completedCrop.height) {
+            return;
+        }
 
-        const finalPixelCrop: PixelCrop = { unit: 'px', x: (image.width * crop.x) / 100, y: (image.height * crop.y) / 100, width: (image.width * crop.width) / 100, height: (image.height * crop.height) / 100 };
-        canvasPreview(image, canvas, finalPixelCrop, 1, rotation);
+        canvasPreview(image, canvas, completedCrop, 1, rotation);
         onSave(canvas.toDataURL('image/jpeg', 0.9));
     };
+
+    const isSaveDisabled = !completedCrop || completedCrop.width === 0 || completedCrop.height === 0;
 
     return (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" aria-modal="true" role="dialog">
@@ -100,7 +96,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, onSave, onCancel, t
                 <canvas ref={previewCanvasRef} className="hidden" />
                 <div className="flex justify-end gap-4 p-6 pt-4 mt-auto flex-shrink-0 border-t border-neutral-800">
                     <Button onClick={onCancel} variant="ghost">Cancel</Button>
-                    <Button onClick={handleSaveCrop} disabled={!completedCrop} variant="primary">Confirm</Button>
+                    <Button onClick={handleSaveCrop} disabled={isSaveDisabled} variant="primary">Confirm</Button>
                 </div>
             </motion.div>
         </motion.div>

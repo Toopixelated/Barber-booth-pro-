@@ -1,4 +1,3 @@
-
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -54,7 +53,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ status, progressMessage, vi
     return (
         <Card className={cn(status === 'error' && 'border-red-500/50')}>
             <CardContent className="p-4">
-                <div className="w-full bg-neutral-900 shadow-inner flex-grow relative aspect-video group rounded-md overflow-hidden">
+                <div className="w-full bg-neutral-900 shadow-inner flex-grow relative aspect-square group rounded-md overflow-hidden">
                     {status === 'generating' && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-center">
                             <LoadingSpinner />
