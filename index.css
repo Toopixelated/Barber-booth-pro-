@@ -1,0 +1,29 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background-color: #0c0a09; /* neutral-950 */
+  background-image: 
+    radial-gradient(circle at 25% 30%, #4c1d9522 0%, transparent 50%), 
+    radial-gradient(circle at 75% 70%, #ec489922 0%, transparent 50%);
+  background-attachment: fixed;
+}
+
+/* Custom scrollbar */
+.scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #52525b #18181b; /* neutral-600 neutral-900 */
+}
+.scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+    background: #18181b; /* neutral-900 */
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: #52525b; /* neutral-600 */
+    border-radius: 20px;
+    border: 3px solid #18181b; /* neutral-900 */
+}

@@ -1,0 +1,7 @@
+{
+  "name": "Barber Booth Pro_",
+  "description": "Your personal AI hair salon. Upload a photo, describe a style, and get a stunning 360-degree preview of your new look, powered by generative AI.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

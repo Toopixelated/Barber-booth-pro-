@@ -1,0 +1,58 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Barber Booth Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Permanent+Marker&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://esm.sh/react-image-crop/dist/ReactCrop.css">
+    <link rel="stylesheet" href="/index.css">
+    <style>
+      body {
+        font-family: 'Inter', sans-serif;
+      }
+      .font-permanent-marker {
+        font-family: 'Permanent Marker', cursive;
+      }
+      .ReactCrop__rule-of-thirds-vt::before,
+      .ReactCrop__rule-of-thirds-vt::after,
+      .ReactCrop__rule-of-thirds-hz::before,
+      .ReactCrop__rule-of-thirds-hz::after {
+        border-color: rgba(255, 255, 255, 0.4);
+      }
+      .ReactCrop__cropper {
+        stroke: white;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://esm.sh/@google/genai@^1.14.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.1.1/",
+    "react-dom/client": "https://esm.sh/react-dom@^19.1.1/client",
+    "react/": "https://esm.sh/react@^19.1.1/",
+    "react": "https://esm.sh/react@^19.1.1",
+    "framer-motion": "https://esm.sh/framer-motion@^12.23.12",
+    "react-image-crop": "https://esm.sh/react-image-crop@^11.0.6",
+    "zustand": "https://esm.sh/zustand@^4.5.5",
+    "zustand/": "https://esm.sh/zustand@^4.5.5/",
+    "lucide-react": "https://esm.sh/lucide-react@^0.418.0",
+    "react-colorful": "https://esm.sh/react-colorful@^5.6.1",
+    "react-hot-toast": "https://esm.sh/react-hot-toast@^2.4.1",
+    "clsx": "https://esm.sh/clsx@^2.1.1",
+    "tailwind-merge": "https://esm.sh/tailwind-merge@^2.4.0",
+    "react-slider": "https://esm.sh/react-slider@^2.0.6",
+    "class-variance-authority": "https://aistudiocdn.com/class-variance-authority@^0.7.1"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
