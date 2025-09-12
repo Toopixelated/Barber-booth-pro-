@@ -2,8 +2,8 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import React, { useState, useEffect, useRef } from 'react';
-import ReactSlider from 'react-slider';
+import React, { useState } from 'react';
+import * as Slider from '@radix-ui/react-slider';
 import { motion } from 'framer-motion';
 import { X } from 'lucide-react';
 
@@ -14,36 +14,10 @@ interface ComparisonSliderProps {
 }
 
 const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage, afterImage, onClose }) => {
-  const [sliderValue, setSliderValue] = useState(50);
-  const [isReady, setIsReady] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // This effect ensures we don't render the slider until its container has a real width,
-  // preventing the React #525 error. useEffect runs after the browser has painted,
-  // making it more resilient to timing issues with animations and React's Strict Mode.
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    // Using ResizeObserver is the most robust way to wait for an element to have dimensions.
-    const observer = new ResizeObserver(entries => {
-      // Once we have a width, we can render the slider.
-      if (entries[0]?.contentRect.width > 0) {
-        setIsReady(true);
-        // We only need the first observation, so we can disconnect.
-        observer.disconnect();
-      }
-    });
-
-    observer.observe(container);
-    
-    // Cleanup the observer when the component unmounts.
-    return () => observer.disconnect();
-  }, []);
+  const [sliderValue, setSliderValue] = useState([50]);
 
   return (
     <motion.div
-      ref={containerRef}
       className="absolute inset-0 z-30"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -61,7 +35,7 @@ const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage, afterI
           className="absolute inset-0 bg-cover bg-center"
           style={{
             backgroundImage: `url(${afterImage})`,
-            clipPath: `polygon(0 0, ${sliderValue}% 0, ${sliderValue}% 100%, 0 100%)`
+            clipPath: `polygon(0 0, ${sliderValue[0]}% 0, ${sliderValue[0]}% 100%, 0 100%)`
           }}
         />
 
@@ -73,35 +47,33 @@ const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage, afterI
         >
           <X className="h-5 w-5" />
         </button>
-
-        {/* Slider Logic - Renders only when container is ready */}
-        {isReady && (
-          <div className="absolute inset-0">
-            {/* Vertical Divider Line, moved by the thumb */}
-            <div
-              className="absolute top-0 bottom-0 w-0.5 bg-white/80 shadow-lg pointer-events-none"
-              style={{ left: `${sliderValue}%`, transform: 'translateX(-50%)' }}
-            />
-            
-            <ReactSlider
-              value={sliderValue}
-              onChange={(value) => setSliderValue(value)}
-              className="absolute inset-y-0 w-full h-full"
-              thumbClassName="z-40 focus:outline-none"
-              trackClassName="hidden"
-              renderThumb={(props) => (
-                <div {...props} className="absolute h-full -translate-x-1/2 top-0 flex items-center">
-                  <div className="flex h-14 w-14 cursor-ew-resize items-center justify-center rounded-full border-2 border-white bg-black/50 backdrop-blur-sm text-white shadow-xl">
-                      <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        
+        <Slider.Root
+          value={sliderValue}
+          onValueChange={setSliderValue}
+          max={100}
+          step={0.1}
+          className="absolute inset-0"
+        >
+          {/* Track is conceptually the whole slider area, but we don't need a visible bar */}
+          <Slider.Track className="relative h-full w-full">
+            <Slider.Range />
+          </Slider.Track>
+          {/* Thumb contains our custom handle and the vertical line */}
+          <Slider.Thumb className="block h-full w-14 -translate-x-1/2 cursor-ew-resize focus:outline-none z-40">
+            <div className="relative h-full w-full flex items-center justify-center">
+                {/* Vertical Divider Line */}
+                <div className="absolute top-0 bottom-0 w-0.5 bg-white/80 shadow-lg" />
+                {/* Draggable Handle */}
+                <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-white bg-black/50 backdrop-blur-sm text-white shadow-xl">
+                    <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="10 7 6 12 10 17" />
                         <polyline points="14 7 18 12 14 17" />
-                      </svg>
-                  </div>
+                    </svg>
                 </div>
-              )}
-            />
-          </div>
-        )}
+            </div>
+          </Slider.Thumb>
+        </Slider.Root>
       </div>
     </motion.div>
   );

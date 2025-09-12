@@ -16,11 +16,14 @@ import VideoPreview from './components/VideoPreview';
 import { useStore, HistoryItem, GeneratedImage } from './store';
 import { Button } from './components/ui/button';
 import { Card, CardContent } from './components/ui/card';
-import { Camera, FileImage, Palette, Wand2, Replace, Trash2, Share2 } from 'lucide-react';
+// FIX: Added 'Download' to the import from lucide-react to fix usage error.
+import { Camera, FileImage, Palette, Wand2, Replace, Trash2, Share2, Download, History } from 'lucide-react';
 import ColorPicker from './components/ColorPicker';
 import toast from 'react-hot-toast';
 import ShareMenu from './components/ShareMenu';
 import { attemptShare } from './lib/shareUtils';
+// FIX: Imported the LoadingSpinner component to resolve reference error.
+import LoadingSpinner from './components/LoadingSpinner';
 
 export type Angle = 'front' | 'left' | 'right' | 'back';
 export const ANGLES: Angle[] = ['front', 'left', 'right', 'back'];
@@ -90,6 +93,13 @@ function App() {
     const handleClientImageUpload = (e: ChangeEvent<HTMLInputElement>) => {
         if (e.target.files?.[0]) {
             handleFileSelected(e.target.files[0], 'client');
+            e.target.value = "";
+        }
+    };
+
+    const handleHairstyleImageUpload = (e: ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files?.[0]) {
+            handleFileSelected(e.target.files[0], 'reference');
             e.target.value = "";
         }
     };
@@ -183,11 +193,12 @@ function App() {
 
     const runGenerationSequence = async () => {
         if (!state.uploadedImage || (!state.hairstyleDescription.trim() && !state.hairstyleReferenceImage)) return;
-    
+
         startGeneration();
-    
+
         try {
-            const fourUpImageUrl = await generateFourUpImage(
+            // Step 1: Generate the single 4-up image sheet
+            const fourUpSheetUrl = await generateFourUpImage(
                 { dataUrl: state.uploadedImage! },
                 {
                     description: state.hairstyleDescription,
@@ -198,31 +209,31 @@ function App() {
                     hairColor: state.hairColor,
                 }
             );
-    
-            const croppedImages = await cropFourUpSheet(fourUpImageUrl);
-    
+
+            // Step 2: Crop the sheet into individual images
+            const croppedImages = await cropFourUpSheet(fourUpSheetUrl);
+
+            // Step 3: Update state for each angle with the cropped image
             const finalGeneratedImagesState: Record<string, GeneratedImage> = {};
-            ANGLES.forEach(angle => {
-                const url = croppedImages[angle];
-                setAngleStatus(angle, url ? 'done' : 'error', url, url ? undefined : `Failed to crop ${angle} view.`);
-                finalGeneratedImagesState[angle] = {
-                    status: url ? 'done' : 'error',
-                    url: url,
-                    error: url ? undefined : `Failed to crop ${angle} view.`
-                };
-            });
-    
-            const allDone = Object.values(finalGeneratedImagesState).every(img => img.status === 'done');
-            if (allDone) {
-                await saveToHistory(finalGeneratedImagesState);
+            for (const angle of ANGLES) {
+                if (croppedImages[angle]) {
+                    setAngleStatus(angle, 'done', croppedImages[angle]);
+                    finalGeneratedImagesState[angle] = { status: 'done', url: croppedImages[angle] };
+                } else {
+                    // This case should ideally not happen if cropping is successful
+                    throw new Error(`Cropped image for angle '${angle}' was not found.`);
+                }
             }
-    
+            
+            await saveToHistory(finalGeneratedImagesState);
+
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
-            ANGLES.forEach(angle => {
+            console.error(`Failed to generate 4-up grid:`, err);
+            // If the whole process fails, mark all angles as errored
+            for (const angle of ANGLES) {
                 setAngleStatus(angle, 'error', undefined, errorMessage);
-            });
-            console.error(`Failed to generate 4-up image:`, err);
+            }
         } finally {
             finishGeneration();
         }
@@ -323,144 +334,280 @@ function App() {
     };
 
     const allImagesDone = ANGLES.every(angle => state.generatedImages[angle]?.status === 'done');
-    const hasHairstyleInput = !!(state.hairstyleDescription.trim() || state.hairstyleReferenceImage);
-    const isGenerationDisabled = state.isGenerating || !hasHairstyleInput;
+    const anyImageFailed = ANGLES.some(angle => state.generatedImages[angle]?.status === 'error');
+    const showResultsActions = allImagesDone || anyImageFailed;
 
-    return (
-        <main className="bg-neutral-950 text-neutral-200 min-h-screen w-full flex flex-col items-center justify-center p-4 pb-40 relative overflow-x-hidden">
+    const mainCardContent = () => {
+        switch (state.appState) {
+            case 'idle':
+                return (
+                    <Card onClick={() => handleOpenUploadOptions('client')} className="w-full max-w-sm aspect-square flex flex-col items-center justify-center cursor-pointer group hover:border-pink-500/50 transition-colors duration-300">
+                        <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.2, type: 'spring', stiffness: 260, damping: 20 }}>
+                            <Camera className="h-24 w-24 text-neutral-600 group-hover:text-pink-400 transition-colors" />
+                            <p className="mt-4 text-xl font-semibold text-neutral-300 group-hover:text-white">Upload Your Photo</p>
+                            <p className="text-sm text-neutral-500">to get started</p>
+                        </motion.div>
+                    </Card>
+                );
+            case 'image-uploaded':
+                return (
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-lg">
+                        <div className="flex justify-center mb-6 relative group">
+                            <img src={state.uploadedImage!} alt="Your photo" className="w-40 h-40 rounded-full object-cover border-4 border-neutral-700 shadow-lg" />
+                            <button onClick={() => handleOpenUploadOptions('client')} className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Replace className="w-8 h-8 text-white" />
+                            </button>
+                        </div>
+
+                        <Card>
+                            <CardContent className="p-4 sm:p-6">
+                                <div className="flex bg-neutral-800 p-1 rounded-md mb-4">
+                                    <button onClick={() => setInputMode('text')} className={cn("w-1/2 py-2 text-sm font-semibold rounded-md transition-colors", state.inputMode === 'text' ? 'bg-indigo-600 text-white' : 'text-neutral-400 hover:bg-neutral-700')}>
+                                        Text Prompt
+                                    </button>
+                                    <button onClick={() => setInputMode('image')} className={cn("w-1/2 py-2 text-sm font-semibold rounded-md transition-colors", state.inputMode === 'image' ? 'bg-indigo-600 text-white' : 'text-neutral-400 hover:bg-neutral-700')}>
+                                        Reference Image
+                                    </button>
+                                </div>
+                                
+                                <AnimatePresence mode="wait">
+                                    <motion.div
+                                        key={state.inputMode}
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -10 }}
+                                        transition={{ duration: 0.2 }}
+                                    >
+                                        {state.inputMode === 'text' ? (
+                                            <div className="relative">
+                                                <textarea
+                                                    value={state.hairstyleDescription}
+                                                    onChange={e => setHairstyleDescription(e.target.value)}
+                                                    onFocus={() => setIsHairstyleInputFocused(true)}
+                                                    onBlur={() => setTimeout(() => setIsHairstyleInputFocused(false), 200)}
+                                                    placeholder="e.g., a neon pink mohawk"
+                                                    className="w-full h-28 p-3 bg-neutral-800 rounded-md border border-neutral-700 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition-all resize-none"
+                                                />
+                                                <AnimatePresence>
+                                                {(isFetchingSuggestions || aiSuggestions.length > 0 || isHairstyleInputFocused && state.hairstyleDescription.length < 3) && (
+                                                     <motion.div 
+                                                        initial={{ opacity: 0, height: 0 }}
+                                                        animate={{ opacity: 1, height: 'auto' }}
+                                                        exit={{ opacity: 0, height: 0 }}
+                                                        className="absolute top-full left-0 w-full bg-neutral-800/90 backdrop-blur-sm border border-neutral-700 rounded-b-md shadow-lg overflow-hidden z-10"
+                                                     >
+                                                        {isFetchingSuggestions ? <LoadingSpinner className="p-4" /> : 
+                                                            (aiSuggestions.length > 0 ? aiSuggestions : randomSuggestions).map(s => (
+                                                                <button key={s} onMouseDown={() => handleSuggestionClick(s)} className="block w-full text-left px-4 py-2 hover:bg-indigo-600/50 text-sm">
+                                                                    {s}
+                                                                </button>
+                                                            ))
+                                                        }
+                                                    </motion.div>
+                                                )}
+                                                </AnimatePresence>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-4">
+                                                {state.hairstyleReferenceImage ? (
+                                                    <div className="relative group aspect-square w-full rounded-md overflow-hidden">
+                                                         <img src={state.hairstyleReferenceImage} alt="Hairstyle reference" className="w-full h-full object-cover"/>
+                                                         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
+                                                             <Button onClick={() => handleOpenUploadOptions('reference')} variant="secondary" size="sm"><Replace className="mr-2 h-4 w-4"/>Change</Button>
+                                                             <Button onClick={() => setHairstyleReferenceImage(null)} variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4"/>Remove</Button>
+                                                         </div>
+                                                     </div>
+                                                ) : (
+                                                    <button onClick={() => handleOpenUploadOptions('reference')} className="w-full aspect-square flex flex-col items-center justify-center bg-neutral-800 rounded-md border-2 border-dashed border-neutral-700 hover:border-pink-500 transition-colors">
+                                                        <FileImage className="w-8 h-8 text-neutral-500 mb-2"/>
+                                                        <span className="text-sm font-semibold">Upload Reference</span>
+                                                        <span className="text-xs text-neutral-500">Click or Drag & Drop</span>
+                                                    </button>
+                                                )}
+                                                <textarea value={state.hairstyleReferenceDescription} onChange={e => setHairstyleReferenceDescription(e.target.value)} placeholder="Describe the hairstyle (optional but recommended)" className="w-full p-3 bg-neutral-800 rounded-md border border-neutral-700 focus:ring-2 focus:ring-pink-500 outline-none transition-all resize-none text-sm" rows={2}/>
+                                                <textarea value={state.hairstyleModification} onChange={e => setHairstyleModification(e.target.value)} placeholder="Any modifications? (e.g., 'make it shorter', 'add blonde highlights')" className="w-full p-3 bg-neutral-800 rounded-md border border-neutral-700 focus:ring-2 focus:ring-pink-500 outline-none transition-all resize-none text-sm" rows={2}/>
+                                                {state.hairstyleReferenceImage && (
+                                                <div className="flex items-center justify-between p-2 bg-neutral-800 rounded-md">
+                                                    <label htmlFor="masking-toggle" className="text-sm font-medium text-neutral-300">
+                                                        High-Fidelity Mode
+                                                        <p className="text-xs text-neutral-500">Best for precise style transfers.</p>
+                                                    </label>
+                                                    <button role="switch" aria-checked={state.useMasking} onClick={() => setUseMasking(!state.useMasking)} id="masking-toggle" className={cn("relative inline-flex h-6 w-11 items-center rounded-full transition-colors", state.useMasking ? 'bg-indigo-600' : 'bg-neutral-700')}>
+                                                        <span className={cn("inline-block h-4 w-4 transform rounded-full bg-white transition-transform", state.useMasking ? 'translate-x-6' : 'translate-x-1')} />
+                                                    </button>
+                                                </div>
+                                                )}
+                                            </div>
+                                        )}
+                                        <ColorPicker />
+                                    </motion.div>
+                                </AnimatePresence>
+                            </CardContent>
+                        </Card>
+                        <div className="flex items-center justify-between mt-6">
+                            <Button variant="ghost" onClick={() => setUploadedImage(null)}>Start Over</Button>
+                            <Button 
+                                onClick={runGenerationSequence} 
+                                disabled={!state.uploadedImage || (!state.hairstyleDescription.trim() && !state.hairstyleReferenceImage) || state.isGenerating}
+                                size="lg"
+                            >
+                                <Wand2 className="mr-2 h-5 w-5"/>
+                                {state.isGenerating ? 'Generating...' : 'Generate Pro'}
+                            </Button>
+                        </div>
+                    </motion.div>
+                );
+            case 'generating-results':
+                return (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full max-w-screen-xl">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                            {ANGLES.map(angle => {
+                                const result = state.generatedImages[angle];
+                                return (
+                                    <PolaroidCard
+                                        key={angle}
+                                        angle={angle}
+                                        caption={angle.charAt(0).toUpperCase() + angle.slice(1)}
+                                        status={result?.status ?? 'pending'}
+                                        imageUrl={result?.url}
+                                        error={result?.error}
+                                        onRegenerate={() => { /* Implement single angle regeneration if needed */ }}
+                                    />
+                                );
+                            })}
+                        </div>
+                        <AnimatePresence>
+                        {showResultsActions && (
+                            <motion.div 
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -20 }}
+                                className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-8"
+                            >
+                                <Button variant="ghost" onClick={() => setUploadedImage(state.uploadedImage)}>
+                                    <Replace className="mr-2 h-4 w-4"/>
+                                    New Style
+                                </Button>
+                                {anyImageFailed ? (
+                                     <Button onClick={handleRegenerateAll} size="lg" disabled={state.isGenerating}>
+                                        <Wand2 className="mr-2 h-4 w-4"/>
+                                        {state.isGenerating ? 'Regenerating...' : 'Try Again'}
+                                     </Button>
+                                ) : (
+                                    <>
+                                        <Button variant="secondary" onClick={handleDownloadFourUpSheet} disabled={isDownloading}>
+                                            <Download className="mr-2 h-4 w-4"/>
+                                            {isDownloading ? 'Downloading...' : 'Download 4-Up'}
+                                        </Button>
+                                        <Button variant="secondary" onClick={handleShareFourUpSheet} disabled={isSharing}>
+                                            <Share2 className="mr-2 h-4 w-4"/>
+                                            {isSharing ? 'Sharing...' : 'Share 4-Up'}
+                                        </Button>
+                                    </>
+                                )}
+                            </motion.div>
+                        )}
+                        </AnimatePresence>
+                        {allImagesDone && !anyImageFailed && (
+                             <div className="flex justify-center mt-6">
+                                <Button onClick={handleGenerateVideoClick} size="lg" disabled={state.videoStatus === 'generating'}>
+                                    <Wand2 className="mr-2 h-4 w-4"/>
+                                    {state.videoStatus === 'generating' ? 'Creating Video...' : 'Create 360° Video'}
+                                </Button>
+                             </div>
+                        )}
+
+                        {state.videoStatus !== 'idle' && (
+                             <motion.div
+                                className="mt-8 w-full max-w-xl mx-auto"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                            >
+                                <VideoPreview
+                                    status={state.videoStatus}
+                                    progressMessage={state.videoProgress}
+                                    videoUrl={state.videoUrl}
+                                    error={state.videoError}
+                                    onClear={() => setVideoStatus('idle')}
+                                />
+                            </motion.div>
+                        )}
+                    </motion.div>
+                );
+        }
+    };
+
+     return (
+        <div className="bg-neutral-950 text-slate-100 min-h-screen font-sans antialiased pb-24">
+            {/* FIX: Add hidden file inputs for programmatic triggering */}
+            <input
+                type="file"
+                ref={clientImageInputRef}
+                onChange={handleClientImageUpload}
+                className="hidden"
+                accept="image/png, image/jpeg, image/webp"
+            />
+            <input
+                type="file"
+                ref={hairstyleImageInputRef}
+                onChange={handleHairstyleImageUpload}
+                className="hidden"
+                accept="image/png, image/jpeg, image/webp"
+            />
+
+            <header className="fixed top-0 left-0 right-0 bg-neutral-950/50 backdrop-blur-sm p-3 z-50 border-b border-neutral-800">
+                <div className="max-w-screen-xl mx-auto flex justify-between items-center px-4">
+                    <div className="flex items-center gap-3">
+                        <div className="bg-gradient-to-br from-pink-500 to-purple-600 p-2 rounded-lg">
+                            <Palette className="w-6 h-6 text-white"/>
+                        </div>
+                        <h1 className="text-2xl font-bold tracking-tight">Barber <span className="text-pink-400">Booth</span> Pro</h1>
+                    </div>
+                    <Button variant="secondary" onClick={() => useStore.getState().setHistoryPanelOpen(true)}>
+                        <History className="mr-2 h-4 w-4"/>
+                        History ({state.generationHistory.length})
+                    </Button>
+                </div>
+            </header>
+
+            <main className="container mx-auto px-4 pt-28 flex flex-col items-center justify-start min-h-screen">
+                <AnimatePresence mode="wait">
+                    {mainCardContent()}
+                </AnimatePresence>
+            </main>
+
+            <Footer />
+            <HistoryPanel />
+            <ShareMenu />
+
+            <AnimatePresence>
+                {editingImage && editingImageType && (
+                    <ImageEditor
+                        imageSrc={editingImage}
+                        onSave={handleEditorSave}
+                        onCancel={handleEditorCancel}
+                        title={editingImageType === 'client' ? "Crop Your Photo" : "Crop Reference Image"}
+                    />
+                )}
+                {isCameraOpen && (
+                    <CameraCapture onCapture={handleCameraCapture} onCancel={() => setIsCameraOpen(false)} />
+                )}
+            </AnimatePresence>
+
             <AnimatePresence>
                 {isUploadOptionsOpen && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4" onClick={() => setIsUploadOptionsOpen(false)}>
-                        <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} onClick={(e) => e.stopPropagation()} className="bg-neutral-900 rounded-lg shadow-xl w-full max-w-xs border border-neutral-700 p-8 flex flex-col items-center gap-6">
-                            <h2 className="text-2xl font-semibold text-center text-white">Choose Source</h2>
-                            <div className="w-full flex flex-col gap-4">
-                                <Button onClick={handleTakePhoto} variant="primary" className="w-full"><Camera className="mr-2 h-4 w-4"/>Take Photo</Button>
-                                <Button onClick={handleSelectFile} variant="secondary" className="w-full"><FileImage className="mr-2 h-4 w-4"/>From Library</Button>
-                            </div>
-                            <Button onClick={() => setIsUploadOptionsOpen(false)} variant="ghost" className="mt-4">Cancel</Button>
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setIsUploadOptionsOpen(false)}>
+                         <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }} onClick={e => e.stopPropagation()} className="bg-neutral-900 rounded-lg p-6 w-full max-w-xs space-y-4 border border-neutral-700">
+                             <h3 className="text-center font-semibold text-lg">Upload Image</h3>
+                            <Button onClick={handleSelectFile} variant="secondary" className="w-full"><FileImage className="mr-2 h-4 w-4"/>From File</Button>
+                            <Button onClick={handleTakePhoto} variant="secondary" className="w-full"><Camera className="mr-2 h-4 w-4"/>Take Photo</Button>
                         </motion.div>
                     </motion.div>
                 )}
-                {isCameraOpen && <CameraCapture onCapture={handleCameraCapture} onCancel={() => { setIsCameraOpen(false); setUploadTarget(null); }} />}
-                {editingImage && editingImageType && <ImageEditor imageSrc={editingImage} onSave={handleEditorSave} onCancel={handleEditorCancel} title={editingImageType === 'client' ? 'Edit Your Photo' : 'Edit Reference Image'} />}
             </AnimatePresence>
-
-            <HistoryPanel />
-            <ShareMenu />
-            
-            <div className="z-10 flex flex-col items-center w-full h-full flex-1 min-h-0">
-                <header className="w-full max-w-6xl text-center my-10 px-4">
-                    <h1 className="text-5xl md:text-7xl font-permanent-marker text-neutral-100 tracking-wider">Barber Booth Pro</h1>
-                    <p className="text-neutral-300 mt-2 text-lg md:text-xl">Your personal AI hair salon.</p>
-                </header>
-
-                <AnimatePresence mode="wait">
-                    <motion.div key={state.appState} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.5 }} className="w-full flex flex-col items-center">
-                        {state.appState === 'idle' && (
-                            <Card className="w-full max-w-sm cursor-pointer group" onClick={() => handleOpenUploadOptions('client')}>
-                                <CardContent className="p-6 flex flex-col items-center justify-center aspect-square">
-                                    <Camera className="w-16 h-16 text-neutral-400 group-hover:text-pink-400 transition-colors" />
-                                    <p className="mt-4 text-xl font-semibold">Upload Your Photo</p>
-                                    <p className="text-neutral-400 text-sm">Click here to start</p>
-                                    <input ref={clientImageInputRef} type="file" className="hidden" accept="image/png, image/jpeg, image/webp" onChange={handleClientImageUpload} />
-                                </CardContent>
-                            </Card>
-                        )}
-
-                        {state.appState === 'image-uploaded' && state.uploadedImage && (
-                            <div className="w-full max-w-xl flex flex-col items-center gap-8">
-                                <div className="relative group">
-                                    <img src={state.uploadedImage} alt="Uploaded" className="w-48 h-48 object-cover rounded-full border-4 border-neutral-700 shadow-lg"/>
-                                    <Button onClick={() => handleOpenUploadOptions('client')} variant="secondary" size="sm" className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <Replace className="w-4 h-4 mr-2"/> Replace
-                                    </Button>
-                                </div>
-                                <Card className="w-full p-6">
-                                    <div className="flex bg-neutral-800 p-1 rounded-md mb-4">
-                                        <button onClick={() => setInputMode('text')} className={cn("w-1/2 px-4 py-1.5 text-sm rounded transition-colors", state.inputMode === 'text' ? 'bg-indigo-600 text-white' : 'text-neutral-300 hover:bg-neutral-700/50')}>Text Prompt</button>
-                                        <button onClick={() => setInputMode('image')} className={cn("w-1/2 px-4 py-1.5 text-sm rounded transition-colors", state.inputMode === 'image' ? 'bg-indigo-600 text-white' : 'text-neutral-300 hover:bg-neutral-700/50')}>Reference Image</button>
-                                    </div>
-                                    {state.inputMode === 'text' ? (
-                                        <div className="space-y-4">
-                                            <div className="relative w-full">
-                                                <textarea value={state.hairstyleDescription} onFocus={() => setIsHairstyleInputFocused(true)} onBlur={() => setTimeout(() => setIsHairstyleInputFocused(false), 200)} onChange={(e) => setHairstyleDescription(e.target.value)} placeholder="e.g., 'a curly mohawk dyed bright blue'..." className="w-full h-24 p-3 pr-10 bg-neutral-800 border border-neutral-700 rounded-md focus:ring-2 focus:ring-pink-500 placeholder:text-neutral-500" />
-                                                {isFetchingSuggestions && (
-                                                    <div className="absolute top-3 right-3">
-                                                        <svg className="animate-spin h-5 w-5 text-neutral-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                        </svg>
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div className="flex flex-wrap gap-2">
-                                                {randomSuggestions.map(s => <button key={s} onClick={() => handleSuggestionClick(s)} className="text-xs px-3 py-1 bg-neutral-700 text-neutral-300 rounded-full hover:bg-neutral-600 transition-colors">{s}</button>)}
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-4">
-                                            {state.hairstyleReferenceImage ? (
-                                                <div className="space-y-3">
-                                                    <div className="relative group">
-                                                        <img src={state.hairstyleReferenceImage} alt="Reference" className="w-full rounded-md object-cover max-h-48" />
-                                                        <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            <Button onClick={() => handleOpenUploadOptions('reference')} size="sm" variant="secondary"><Replace className="w-4 h-4 mr-1"/>Change</Button>
-                                                            <Button onClick={() => setHairstyleReferenceImage(null)} size="sm" variant="destructive"><Trash2 className="w-4 h-4 mr-1"/>Remove</Button>
-                                                        </div>
-                                                    </div>
-                                                    <textarea value={state.hairstyleReferenceDescription} onChange={(e) => setHairstyleReferenceDescription(e.target.value)} placeholder="Describe the haircut..." className="w-full h-20 p-3 bg-neutral-800 border border-neutral-700 rounded-md focus:ring-2 focus:ring-pink-500 placeholder:text-neutral-500"/>
-                                                    <textarea value={state.hairstyleModification} onChange={(e) => setHairstyleModification(e.target.value)} placeholder="Optional modifications..." className="w-full h-20 p-3 bg-neutral-800 border border-neutral-700 rounded-md focus:ring-2 focus:ring-pink-500 placeholder:text-neutral-500"/>
-                                                </div>
-                                            ) : <div onClick={() => handleOpenUploadOptions('reference')} className="w-full h-24 border-2 border-dashed border-neutral-600 rounded-md flex items-center justify-center cursor-pointer hover:border-pink-500 hover:text-white transition-colors"><p>Drop image or click</p><input ref={hairstyleImageInputRef} type="file" className="hidden" onChange={(e) => e.target.files?.[0] && handleFileSelected(e.target.files[0], 'reference')} /></div>}
-                                        </div>
-                                    )}
-                                    <ColorPicker />
-                                </Card>
-                                <div className="flex items-center gap-4">
-                                    <Button onClick={() => setUploadedImage(null)} variant="secondary">Start Over</Button>
-                                    <Button onClick={runGenerationSequence} disabled={isGenerationDisabled} variant="primary"><Wand2 className="mr-2 h-4 w-4"/>{state.isGenerating ? 'Generating...' : 'Generate Pro'}</Button>
-                                </div>
-                            </div>
-                        )}
-
-                        {state.appState === 'generating-results' && (
-                            <div className="w-full max-w-6xl flex flex-col items-center">
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 w-full">
-                                    {ANGLES.map((angle) => (
-                                        <PolaroidCard
-                                            key={angle}
-                                            caption={angle.charAt(0).toUpperCase() + angle.slice(1)}
-                                            status={state.generatedImages[angle]?.status || 'pending'}
-                                            imageUrl={state.generatedImages[angle]?.url}
-                                            error={state.generatedImages[angle]?.error}
-                                            onRegenerate={handleRegenerateAll}
-                                            angle={angle}
-                                        />
-                                    ))}
-                                </div>
-                                <div className="h-24 mt-8 flex items-center justify-center">
-                                    {!state.isGenerating && allImagesDone && (
-                                        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-wrap justify-center items-center gap-4">
-                                            <Button onClick={handleDownloadFourUpSheet} disabled={isDownloading} variant="secondary">{isDownloading ? 'Creating...' : 'Download 4-Up'}</Button>
-                                            <Button onClick={handleShareFourUpSheet} disabled={isSharing} variant="secondary"><Share2 className="mr-2 h-4 w-4"/>{isSharing ? 'Preparing...' : 'Share 4-Up'}</Button>
-                                            <Button onClick={handleGenerateVideoClick} disabled={state.videoStatus === 'generating'} variant="primary">{state.videoStatus === 'generating' ? 'Animating...' : 'Bring to Life ✨'}</Button>
-                                            <Button onClick={() => setUploadedImage(null)} variant="secondary">Start Over</Button>
-                                        </motion.div>
-                                    )}
-                                </div>
-                                {state.videoStatus !== 'idle' && (
-                                    <motion.div className="w-full max-w-2xl mt-4" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}>
-                                        <VideoPreview status={state.videoStatus} progressMessage={state.videoProgress} videoUrl={state.videoUrl} error={state.videoError} onClear={() => setVideoStatus('idle')} />
-                                    </motion.div>
-                                )}
-                            </div>
-                        )}
-                    </motion.div>
-                </AnimatePresence>
-            </div>
-            <Footer />
-        </main>
+        </div>
     );
 }
 
+// FIX: Added default export to make the component available for import in other files.
 export default App;

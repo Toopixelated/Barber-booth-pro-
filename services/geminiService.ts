@@ -168,21 +168,21 @@ export async function generateFourUpImage(
 
     // ASSET 1: Base Image
     parts.push(dataUrlToPart(baseImage.dataUrl));
-    assetKeyLines.push(`- ASSET 1 (SOURCE PERSON): The original photo. This is the source of truth for the person's identity.`);
+    assetKeyLines.push(`- ASSET 1: The user's original photo. This is the source for the person's identity.`);
 
     // Hairstyle Source
     let hairstyleReferenceKey = '';
     if (options.referenceImage) {
         parts.push(dataUrlToPart(options.referenceImage));
-        hairstyleReferenceKey = `ASSET ${parts.length} (HAIRSTYLE REFERENCE)`;
-        assetKeyLines.push(`- ${hairstyleReferenceKey}: An image showing the target hairstyle. Use this image ONLY for the hair.`);
+        hairstyleReferenceKey = `ASSET ${parts.length}`;
+        assetKeyLines.push(`- ${hairstyleReferenceKey}: An image showing the target hairstyle.`);
 
-        hairstyleInstructions = `The hairstyle (cut, texture, style) MUST be taken from ${hairstyleReferenceKey}.`;
+        hairstyleInstructions = `Apply the hairstyle from ${hairstyleReferenceKey}.`;
         if (options.referenceDescription?.trim()) {
-            hairstyleInstructions += ` This hairstyle is described as: "${options.referenceDescription.trim()}".`;
+            hairstyleInstructions += ` Description: "${options.referenceDescription.trim()}".`;
         }
         if (options.modification?.trim()) {
-            hairstyleInstructions += ` Apply this modification to the hairstyle: "${options.modification.trim()}".`;
+            hairstyleInstructions += ` Modification: "${options.modification.trim()}".`;
         }
     } else if (options.description?.trim()) {
         hairstyleInstructions = `The hairstyle should be: "${options.description.trim()}".`;
@@ -191,48 +191,43 @@ export async function generateFourUpImage(
     }
     
     if (options.hairColor) {
-        hairstyleInstructions += `\n- **Color Instruction:** The final hair color MUST be exactly this hex code: ${options.hairColor}.`;
+        hairstyleInstructions += `\n- The final hair color MUST be exactly this hex code: ${options.hairColor}.`;
     }
 
     const finalPrompt = `
-You are an expert AI photo editor specializing in creating consistent, multi-angle character portraits. Your task is to generate a single 2x2 grid image showing a person with a new hairstyle from four different angles.
+**PRIMARY GOAL:** Create a single, seamless 2x2 grid image of the person from ASSET 1 with a new hairstyle.
 
-**CRITICAL INSTRUCTION: The output MUST be a single, square image containing a 2x2 grid. Do not generate four separate images.**
+**SUBJECT:** The person from ASSET 1.
 
----
-**Hairstyle to Apply:**
+**HAIRSTYLE INSTRUCTIONS:**
 ${hairstyleInstructions}
 
----
-**Grid Layout and Content:**
-The final image must be composed of four equal quadrants, each containing a photorealistic portrait of the person from ASSET 1 with the new hairstyle.
+**GRID COMPOSITION:**
+- Top-Left: Front view.
+- Top-Right: Left side profile. A perfect 90-degree turn showing the subject's complete left side.
+- Bottom-Left: Right three-quarter profile. A 45-degree turn showing the right side of the subject's face and head. **IMPORTANT: This view MUST be the mirror opposite of the top-right profile.**
+- Bottom-Right: A direct view of the back of the head.
 
-1.  **Top-Left Quadrant (front view):**
-    -   A head-and-shoulders portrait where the person is facing the camera directly. Both sides of the face should be evenly lit. This is the primary view.
+**MANDATORY RULES:**
+1.  **Identity Preservation:** The subject's face MUST be an exact match to ASSET 1 in all views where it's visible. The lighting on the face must be consistent with the overall scene lighting.
+2.  **Consistency:** The hairstyle, hair color, lighting, and a simple studio background MUST be perfectly uniform across all four views. The front and back views must be rendered under the exact same lighting conditions and against the same background as the side profiles.
+3.  **Quality:** The output must be photorealistic.
 
-2.  **Top-Right Quadrant (left side view):**
-    -   A headshot of the person from their left side, in a three-quarter profile view. The head should be turned about 45 degrees to their right (away from the camera). The hairstyle must be a perfect continuation of the front view.
+**NEGATIVE PROMPT (AVOID THESE):**
+- DO NOT add borders, lines, or spacing between grid images.
+- DO NOT add text, labels, or watermarks.
+- DO NOT distort facial features.
+- DO NOT change the subject's ethnicity, gender, or apparent age.
+- DO NOT include hands, shoulders, or any objects. Focus on the head and hairstyle.
 
-3.  **Bottom-Left Quadrant (right side view):**
-    -   A headshot of the person from their right side, in a three-quarter profile view. The head should be turned about 45 degrees to their left (away from the camera). The hairstyle must be a perfect continuation of the front view.
-
-4.  **Bottom-Right Quadrant (back view):**
-    -   A portrait from directly behind the person, capturing the back of their head and shoulders. The hairstyle must be the central focus, clearly and fully visible from the rear, and consistent with the other views.
-
----
-**General Rules (Apply to ALL quadrants):**
-1.  **Identity & Refinement**: You MUST perfectly replicate the face, features, skin tone, and head shape of the person from ASSET 1 in the front, left, and right views. To counteract AI distortion, render the person's face and jawline with a subtle slimming effect for a natural, flattering look that is true to their identity. This is the most important rule.
-2.  **Hairstyle Consistency**: The hairstyle must be absolutely consistent in style, length, color, and texture across all four quadrants.
-3.  **Background & Quality**: Use a simple, out-of-focus background (e.g., a studio or barbershop) that is the same across all four views. The final composite image must be high-quality and photorealistic. Do not add any text, watermarks, borders, or lines between the quadrants. The four images should be seamlessly placed in the grid.
-
---- ASSET KEY ---
+**ASSET DEFINITIONS:**
 ${assetKeyLines.join('\n')}
     `.trim();
     
     parts.push({ text: finalPrompt });
     
     try {
-        console.log(`Attempting to generate 4-up grid with prompt:\n${finalPrompt}`);
+        console.log(`Attempting to generate 4-up grid with prompt length: ${finalPrompt.length}`);
         const response = await callGeminiWithRetry(parts);
         return processGeminiResponse(response);
     } catch (error) {

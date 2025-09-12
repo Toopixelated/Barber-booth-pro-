@@ -1,0 +1,95 @@
+
+# Barber Booth Pro: UI/UX Design Specification
+
+This document provides a detailed breakdown of the user interface (UI), user experience (UX), and overall aesthetic of the Barber Booth Pro application. It is intended for developers, designers, and AI assistants to understand the application's visual and interactive design.
+
+---
+
+## 1. Overall Aesthetic & Theme
+
+The application's design language is modern, premium, and slightly futuristic, evoking the feel of a high-end, tech-savvy salon.
+
+-   **Color Palette:**
+    -   **Primary Background:** A very dark, near-black neutral (`#0c0a09`, neutral-950).
+    -   **UI Elements:** Dark grays and charcoals for cards and panels (`#18181b` to `#27272a`, neutral-900 to neutral-800).
+    -   **Primary Accent:** A vibrant gradient from hot pink (`#ec4899`) to electric purple (`#8b5cf6`), used for primary call-to-action buttons, focus rings, and decorative elements.
+    -   **Text:** Off-white (`#e2e8f0`, neutral-200) for primary text and light gray (`#a1a1aa`, neutral-400) for secondary text and placeholders.
+    -   **Feedback Colors:** Green for success, red for errors/destructive actions, yellow for warnings/favorites.
+
+-   **Typography:**
+    -   **Headings & Branding:** `Permanent Marker` - A bold, cursive font that gives the app a personal, stylish, and slightly edgy brand identity. Used for the main title and card captions.
+    -   **Body & UI Text:** `Inter` - A clean, highly readable sans-serif font used for all other text, ensuring clarity and a modern feel.
+
+-   **Atmosphere:** The main background features two large, subtle, blurred radial gradients (one indigo, one pink) that add depth and a "nebula" or "mood lighting" effect without being distracting. The entire UI employs a dark mode theme, which is easy on the eyes and makes the vibrant accent colors pop.
+
+---
+
+## 2. Layout & Structure
+
+The application is a responsive, single-page application (SPA) with a clear, consistent structure.
+
+-   **Main Layout:** A single-column, centered layout that focuses the user's attention. The main content area occupies the vertical center of the screen.
+-   **Header:** A simple, text-based header at the top of the main content area.
+-   **Footer:** A fixed footer at the bottom of the viewport. It has a semi-transparent, blurred background (`backdrop-blur-sm`) to ensure content can scroll underneath it without being completely obscured.
+-   **Side Panels & Modals:** Secondary features like Generation History and various menus (Share, Upload Options) appear as overlays (modals) or slide-in panels, dimming and blurring the main content to maintain focus.
+-   **Responsiveness:** The layout adapts fluidly to different screen sizes. The 4-up results grid, for instance, collapses from a 4-column layout on large screens to 2-column on tablets and 1-column on mobile.
+
+---
+
+## 3. Core Component Design
+
+### 3.1. Main Application Flow (controlled by `appState`)
+
+**a) `idle` State (Initial View):**
+-   The user is greeted by a single, large, square `Card` component.
+-   **Appearance:** It has a subtle glowing gradient border. Inside, a large `Camera` icon and the text "Upload Your Photo" prompt the user to action.
+-   **Interaction:** The entire card is a clickable area. Hovering over it produces a slight lift/scale effect. Clicking it opens the "Choose Source" modal.
+
+**b) `image-uploaded` State (Input View):**
+-   The view is dominated by a central card for hairstyle input, with the user's uploaded photo displayed above it.
+-   **Uploaded Image Preview:** The user's photo is displayed in a circular frame with a thick border. On hover, a "Replace" button appears, allowing the user to change the photo.
+-   **Input Card:**
+    -   **Tabs:** A two-tab interface ("Text Prompt" / "Reference Image") allows the user to switch input methods. The active tab is highlighted with the primary indigo accent color.
+    -   **Text Prompt:** A multi-line `textarea` with placeholder text. When focused, it gains a pink glowing ring. An animated loading spinner appears inside if AI suggestions are being fetched. Below are small, pill-shaped suggestion buttons.
+    -   **Reference Image:** Initially a dashed-border "drop zone." When an image is added, it's displayed as a preview with "Change" and "Remove" buttons appearing on hover. Two `textarea` elements below it allow for further description and modification.
+    -   **Color Picker:** A button that shows the selected hair color (or prompts to add one). Clicking it reveals a pop-over panel containing a full `HexColorPicker`, a grid of preset color swatches, and a "Clear Color" button.
+-   **Action Buttons:** "Start Over" (secondary style) and "Generate Pro" (primary gradient style) are located below the input card.
+
+**c) `generating-results` State (Results View):**
+-   The UI transitions to a grid of four `PolaroidCard` components.
+-   **Polaroid Card (`PolaroidCard.tsx`):** The key result component.
+    -   **Structure:** Designed to look like a classic polaroid photo, with a large image area and a thicker bottom border for a handwritten-style caption (e.g., "Front").
+    -   **States:**
+        1.  **Pending:** The image area is filled with a loading spinner and a series of cycling, animated text messages ("Briefing the AI stylist...", "Simulating hair texture...") to keep the user engaged.
+        2.  **Done:** The generated image fades in with a desaturated-to-saturated effect. On hover, a set of icon buttons (Regenerate, Share, Download, Compare) fades in at the top right. The card's border turns green.
+        3.  **Error:** The image area displays a large red warning icon (`AlertTriangle`) and a user-friendly error message. The card's border turns red.
+    -   **Interaction:** The front-facing card has a "Compare" button that, when clicked, overlays a `ComparisonSlider`.
+-   **Comparison Slider (`ComparisonSlider.tsx`):**
+    -   An interactive overlay on the "Front" image card.
+    -   A vertical white line with a circular, draggable handle (containing left/right arrows) allows the user to slide between the "before" (original) and "after" (generated) images.
+-   **Post-Generation Actions:** After all images are done, a row of action buttons appears below the grid: "Download 4-Up," "Share 4-Up," and the primary "Bring to Life ✨" button for video generation.
+
+### 3.2. Overlays and Modals
+
+-   **General Behavior:** All modals and panels appear with a smooth `framer-motion` animation (scale, fade, or slide) and are accompanied by a dark, blurred backdrop that covers the main UI.
+
+-   **Camera Capture:** A full-screen overlay that displays the device's camera feed. It features a large, white, circular shutter button at the bottom center, designed to look like a real camera's shutter release.
+
+-   **Image Editor:** A modal containing the `ReactCrop` interface, which shows a square crop area with rule-of-thirds lines. Below the image is a range slider for fine-tuning rotation.
+
+-   **History Panel:** A panel that slides in from the right side of the screen.
+    -   It contains a filter for "All" vs. "Favorites."
+    -   History items are displayed as cards with a small preview of the user's image, the hairstyle prompt, a "Restore" button, and a star icon for favoriting. The star icon fills with yellow when an item is a favorite.
+
+-   **Share Menu:** A dialog box that displays a large preview of the image or video to be shared. It provides branded social media buttons ("Twitter," "Facebook") and utility buttons ("Copy Image," "Download").
+
+### 3.3. Micro-interactions & Animations
+
+-   **State Transitions:** The transition between the three main `appState`s is animated with a fade and vertical slide, giving the app a fluid, seamless feel.
+-   **Hover Effects:** Buttons scale up slightly on hover. Cards lift. Icons change color or opacity. These small details make the UI feel responsive and alive.
+-   **Loading States:** Animated spinners and pulsing text are used consistently to provide clear feedback during asynchronous operations (image generation, fetching suggestions, video processing).
+-   **Draggable Cards:** The Polaroid Cards can be dragged around the screen. They have a subtle 3D tilt effect on hover and a physics-based "throw" animation when released, adding a playful and tactile quality.
+
+---
+
+This specification covers the primary visual and interactive elements of the Barber Booth Pro application, providing a comprehensive guide to its design language and user experience flow.
