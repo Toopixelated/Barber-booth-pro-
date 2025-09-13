@@ -6,6 +6,7 @@ import { GoogleGenAI, Type, Modality } from "@google/genai";
 import type { GenerateContentResponse, Part, GenerateVideosOperation } from "@google/genai";
 import type { Angle } from "../App";
 import { resizeImageForApi } from "../lib/albumUtils";
+import i18n from '../i18n/i18n';
 
 // FIX: Check for both API_KEY and API_key to handle environment inconsistencies.
 const API_KEY = process.env.API_KEY || (window as any).process?.env?.API_key;
@@ -21,7 +22,7 @@ const ai = new GoogleGenAI({ apiKey: API_KEY });
 function dataUrlToPart(dataUrl: string): Part {
     const match = dataUrl.match(/^data:(image\/\w+);base64,(.*)$/);
     if (!match) {
-      throw new Error("Invalid data URL format. Expected 'data:image/...;base64,...'");
+      throw new Error(i18n.t('error.invalid_data_url'));
     }
     const [, mimeType, data] = match;
     return { inlineData: { mimeType, data } };
@@ -37,7 +38,7 @@ function processGeminiResponse(response: GenerateContentResponse): string {
 
     const textResponse = response.text;
     console.error("API did not return an image. Response:", textResponse);
-    throw new Error(`The AI model responded with text instead of an image: "${textResponse || 'No text response received.'}"`);
+    throw new Error(i18n.t('error.model_text_response', { textResponse: textResponse || i18n.t('error.no_text_response') }));
 }
 
 async function callGeminiWithRetry(parts: Part[]): Promise<GenerateContentResponse> {
@@ -86,7 +87,7 @@ async function callGeminiWithRetry(parts: Part[]): Promise<GenerateContentRespon
             throw error;
         }
     }
-    throw new Error("Gemini API call failed after all retries.");
+    throw new Error(i18n.t('error.gemini_api_failed'));
 }
 
 interface GenerationOptions {
@@ -190,7 +191,7 @@ export async function generateFourUpImage(
         } else if (options.description?.trim()) {
             hairstyleInstructions = `The hairstyle should be: "${options.description.trim()}".`;
         } else {
-            throw new Error("Either a hairstyle description, a reference image, or just a hair color must be provided.");
+            throw new Error(i18n.t('error.no_input'));
         }
         
         // Append color if it exists, for cases 2 & 3.
@@ -229,22 +230,22 @@ Critical Rules:
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
         console.error(`An unrecoverable error occurred during 4-up image generation.`, error);
-        throw new Error(`The AI model failed to generate the 4-up grid. Details: ${errorMessage}`);
+        throw new Error(i18n.t('error.four_up_generation_failed', { errorMessage }));
     }
 }
 
 
 const progressMessages = [
-    "Briefing the AI stylist on your vision...",
-    "Calibrating the virtual camera rig...",
-    "Mapping your facial geometry in 3D...",
-    "Simulating hair follicles strand by strand...",
-    "Rendering the right profile view...",
-    "Generating the view from the back...",
-    "Painting in the left profile...",
-    "Stitching the orbital path together...",
-    "Applying cinematic lighting and color grade...",
-    "Finalizing the 360° masterpiece..."
+    "progress.vision",
+    "progress.camera",
+    "progress.geometry",
+    "progress.follicles",
+    "progress.right_profile",
+    "progress.back_view",
+    "progress.left_profile",
+    "progress.stitching",
+    "progress.lighting",
+    "progress.finalizing"
 ];
 
 
@@ -281,13 +282,13 @@ Core Requirements:
     const resizedHairstyleImage = await resizeImageForApi(hairstyleImage.dataUrl);
     const match = resizedHairstyleImage.match(/^data:(image\/\w+);base64,(.*)$/);
     if (!match) {
-        throw new Error("Invalid hairstyle image data URL format.");
+        throw new Error(i18n.t('error.invalid_data_url'));
     }
     const [, mimeType, data] = match;
 
     let operation: GenerateVideosOperation;
     try {
-        onProgress(progressMessages[0]);
+        onProgress(i18n.t(progressMessages[0]));
         console.log("Attempting to generate video with prompt:", prompt);
         operation = await ai.models.generateVideos({
             model: 'veo-2.0-generate-001',
@@ -302,45 +303,45 @@ Core Requirements:
         });
     } catch (error) {
         console.error("Failed to start video generation. Prompt used:", prompt, "Error:", error);
-        throw new Error("The AI model failed to initialize the video generation process.");
+        throw new Error(i18n.t('error.video_initialization_failed'));
     }
 
     let progressIndex = 1;
     while (!operation.done) {
-        onProgress(progressMessages[progressIndex % progressMessages.length]);
+        onProgress(i18n.t(progressMessages[progressIndex % progressMessages.length]));
         progressIndex++;
         await new Promise(resolve => setTimeout(resolve, 10000)); // Poll every 10 seconds
         try {
             operation = await ai.operations.getVideosOperation({ operation: operation });
         } catch (error) {
             console.error("Error while polling for video status:", error);
-            throw new Error("There was a problem checking the status of your video generation.");
+            throw new Error(i18n.t('error.video_status_check_failed'));
         }
     }
 
     if (operation.error) {
         console.error("Video generation operation failed. Prompt used:", prompt, "Error details:", operation.error);
-        throw new Error(`The video generation failed with code ${operation.error.code}: ${operation.error.message}`);
+        throw new Error(i18n.t('error.video_generation_failed', { code: operation.error.code, message: operation.error.message }));
     }
 
     const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
     if (!downloadLink) {
         console.error("Video generation finished but returned no URL. Prompt used:", prompt, "Final Operation State:", operation);
-        throw new Error("The AI model finished but did not provide a video URL.");
+        throw new Error(i18n.t('error.no_video_url'));
     }
 
-    onProgress("Downloading final video...");
+    onProgress(i18n.t('progress.downloading_video'));
     
     try {
         const response = await fetch(`${downloadLink}&key=${API_KEY}`);
         if (!response.ok) {
-            throw new Error(`Failed to download video file. Status: ${response.status}`);
+            throw new Error(i18n.t('error.video_download_failed', { status: response.status }));
         }
         const blob = await response.blob();
         return URL.createObjectURL(blob); // More efficient way to handle video data
 
     } catch (error) {
         console.error("Failed to download or process video:", error);
-        throw new Error("There was an error retrieving the final video file.");
+        throw new Error(i18n.t('error.video_processing_failed'));
     }
 }

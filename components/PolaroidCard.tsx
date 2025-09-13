@@ -15,6 +15,7 @@ import { attemptShare } from '../lib/shareUtils';
 import ComparisonSlider from './ComparisonSlider';
 import toast from 'react-hot-toast';
 import { getUpscaler } from '../lib/upscaler';
+import { useTranslation } from 'react-i18next';
 
 type ImageStatus = 'pending' | 'done' | 'error';
 
@@ -28,28 +29,30 @@ interface ResultCardProps {
 }
 
 const PENDING_MESSAGES = [
-    "Briefing the AI stylist...",
-    "Analyzing facial structure...",
-    "Selecting color palette...",
-    "Simulating hair texture...",
-    "Rendering the initial look...",
-    "Applying realistic lighting...",
-    "Adding final touches...",
-    "Perfecting the details..."
+    "pending.stylist",
+    "pending.structure",
+    "pending.palette",
+    "pending.texture",
+    "pending.render",
+    "pending.lighting",
+    "pending.touches",
+    "pending.details"
 ];
 
 const ErrorDisplay = ({ message }: { message?: string }) => {
-    const userFriendlyMessage = message?.split('Details:')[0].trim() || 'An unknown error occurred.';
+    const { t } = useTranslation();
+    const userFriendlyMessage = message?.split('Details:')[0].trim() || t('unknown_error');
     return (
         <div className="flex flex-col items-center justify-center h-full text-center p-4 text-red-400">
             <AlertTriangle className="h-10 w-10" />
-            <p className="mt-2 text-sm font-semibold">Generation Failed</p>
+            <p className="mt-2 text-sm font-semibold">{t('generation_failed')}</p>
             <p className="mt-1 text-xs text-neutral-400 px-2 leading-snug">{userFriendlyMessage}</p>
         </div>
     );
 };
 
 const PolaroidCard: React.FC<ResultCardProps> = ({ imageUrl, caption, status, error, onRegenerate, angle }) => {
+    const { t } = useTranslation();
     const [isImageLoaded, setIsImageLoaded] = useState(false);
     const [loadingMessage, setLoadingMessage] = useState(PENDING_MESSAGES[0]);
     const [isComparing, setIsComparing] = useState(false);
@@ -70,17 +73,16 @@ const PolaroidCard: React.FC<ResultCardProps> = ({ imageUrl, caption, status, er
     useEffect(() => {
         let intervalId: number | undefined;
         if (status === 'pending') {
-            setLoadingMessage(PENDING_MESSAGES[0]); 
+            setLoadingMessage(t(PENDING_MESSAGES[0]));
             intervalId = window.setInterval(() => {
-                setLoadingMessage(prevMessage => {
-                    const currentIndex = PENDING_MESSAGES.indexOf(prevMessage);
-                    const nextIndex = (currentIndex + 1) % PENDING_MESSAGES.length;
-                    return PENDING_MESSAGES[nextIndex];
+                setLoadingMessage(() => {
+                    const nextIndex = Math.floor(Math.random() * PENDING_MESSAGES.length);
+                    return t(PENDING_MESSAGES[nextIndex]);
                 });
             }, 2500);
         }
         return () => { if (intervalId) clearInterval(intervalId); };
-    }, [status]);
+    }, [status, t]);
 
     const handleDownload = async () => {
         if (!imageUrl || isUpscaling) return;
@@ -175,10 +177,10 @@ const PolaroidCard: React.FC<ResultCardProps> = ({ imageUrl, caption, status, er
 
                 {(status === 'done' || status === 'error') && (
                     <div className="absolute top-2 right-2 z-20 flex flex-col gap-2 transition-opacity duration-300 opacity-0 group-hover:opacity-100">
-                        <Button onClick={() => onRegenerate()} size="icon" variant="secondary" title="Regenerate"><Repeat className="w-4 h-4"/></Button>
-                        {status === 'done' && <Button onClick={handleShare} size="icon" variant="secondary" title="Share"><Share2 className="w-4 h-4"/></Button>}
-                        {status === 'done' && <Button onClick={handleDownload} size="icon" variant="secondary" title="Download" disabled={isUpscaling}><Download className="w-4 h-4"/></Button>}
-                        {status === 'done' && angle === 'front' && <Button onClick={handleCompare} size="icon" variant={isComparing ? 'primary' : 'secondary'} title={isComparing ? 'Close Comparison' : 'Compare'}><GitCompareArrows className="w-4 h-4"/></Button>}
+                        <Button onClick={() => onRegenerate()} size="icon" variant="secondary" title={t('regenerate')}><Repeat className="w-4 h-4"/></Button>
+                        {status === 'done' && <Button onClick={handleShare} size="icon" variant="secondary" title={t('share')}><Share2 className="w-4 h-4"/></Button>}
+                        {status === 'done' && <Button onClick={handleDownload} size="icon" variant="secondary" title={t('download')} disabled={isUpscaling}><Download className="w-4 h-4"/></Button>}
+                        {status === 'done' && angle === 'front' && <Button onClick={handleCompare} size="icon" variant={isComparing ? 'primary' : 'secondary'} title={isComparing ? t('close_comparison') : t('compare')}><GitCompareArrows className="w-4 h-4"/></Button>}
                     </div>
                 )}
             </div>

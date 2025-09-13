@@ -61,6 +61,7 @@ interface AppState {
     isShareMenuOpen: boolean;
     shareContent: { url: string; type: 'image' | 'video'; title: string } | null;
     installPromptEvent: any | null;
+    locale: string;
 }
 
 interface AppActions {
@@ -99,6 +100,7 @@ interface AppActions {
     openShareMenu: (content: { url: string; type: 'image' | 'video'; title: string }) => void;
     closeShareMenu: () => void;
     setInstallPromptEvent: (event: any | null) => void;
+    setLocale: (locale: string) => void;
 }
 
 export const useStore = create<AppState & AppActions>()(
@@ -126,6 +128,7 @@ export const useStore = create<AppState & AppActions>()(
             isShareMenuOpen: false,
             shareContent: null,
             installPromptEvent: null,
+            locale: 'en',
             
             // Actions
             setUploadedImage: (image) => {
@@ -205,6 +208,7 @@ export const useStore = create<AppState & AppActions>()(
             openShareMenu: (content) => set({ isShareMenuOpen: true, shareContent: content }),
             closeShareMenu: () => set({ isShareMenuOpen: false }),
             setInstallPromptEvent: (event) => set({ installPromptEvent: event }),
+            setLocale: (locale) => set({ locale }),
         }),
         {
             name: 'barber-booth-pro-storage',

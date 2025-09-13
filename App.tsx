@@ -26,6 +26,7 @@ import LoadingSpinner from './components/LoadingSpinner';
 // FIX: Import 'attemptShare' to resolve 'Cannot find name' error.
 import { attemptShare } from './lib/shareUtils';
 import { getUpscaler } from './lib/upscaler';
+import { useTranslation } from 'react-i18next';
 
 export type Angle = 'front' | 'left' | 'right' | 'back';
 export const ANGLES: Angle[] = ['front', 'left', 'right', 'back'];
@@ -45,13 +46,26 @@ const PROMPT_IDEAS = [
 ];
 
 function App() {
+    const { t, i18n } = useTranslation();
     const state = useStore();
     const {
         setUploadedImage, setHairstyleDescription, setHairstyleReferenceImage, setHairstyleReferenceDescription,
         setHairstyleModification, setUseMasking, setInputMode, startGeneration, setAngleStatus,
         finishGeneration, addToHistory, setVideoStatus, setVideoUrl, setVideoProgress, setVideoError,
-        openShareMenu, setComparisonSourceImage, setInstallPromptEvent
+        openShareMenu, setComparisonSourceImage, setInstallPromptEvent, setLocale
     } = useStore.getState();
+
+    useEffect(() => {
+        const handleLanguageChange = (lng: string) => {
+            setLocale(lng);
+        };
+        i18n.on('languageChanged', handleLanguageChange);
+        setLocale(i18n.language);
+
+        return () => {
+            i18n.off('languageChanged', handleLanguageChange);
+        };
+    }, [i18n, setLocale]);
 
     const [editingImage, setEditingImage] = useState<string | null>(null);
     const [editingImageType, setEditingImageType] = useState<'client' | 'reference' | null>(null);
@@ -438,8 +452,8 @@ function App() {
                         {/* FIX: Wrapped motion props in a spread object to resolve type error. */}
                         <motion.div {...{ initial: { scale: 0.8, opacity: 0 }, animate: { scale: 1, opacity: 1 }, transition: { delay: 0.2, type: 'spring', stiffness: 260, damping: 20 } }}>
                             <Camera className="h-24 w-24 text-neutral-600 group-hover:text-pink-400 transition-colors" />
-                            <p className="mt-4 text-xl font-semibold text-neutral-300 group-hover:text-white">Upload Your Photo</p>
-                            <p className="text-sm text-neutral-500">to get started</p>
+                            <p className="mt-4 text-xl font-semibold text-neutral-300 group-hover:text-white">{t('upload_photo')}</p>
+                            <p className="text-sm text-neutral-500">{t('get_started')}</p>
                         </motion.div>
                     </Card>
                 );
@@ -569,14 +583,14 @@ function App() {
                             </CardContent>
                         </Card>
                         <div className="flex items-center justify-between mt-6">
-                            <Button variant="ghost" onClick={() => setUploadedImage(null)}>Start Over</Button>
+                            <Button variant="ghost" onClick={() => setUploadedImage(null)}>{t('start_over')}</Button>
                             <Button 
                                 onClick={runGenerationSequence} 
                                 disabled={!state.uploadedImage || (!state.hairstyleDescription.trim() && !state.hairstyleReferenceImage && !state.hairColor.trim()) || state.isGenerating}
                                 size="lg"
                             >
                                 <Wand2 className="mr-2 h-5 w-5"/>
-                                {state.isGenerating ? 'Generating...' : 'Generate Pro'}
+                                {state.isGenerating ? t('generating') : t('generate')}
                             </Button>
                         </div>
                     </motion.div>
@@ -614,22 +628,22 @@ function App() {
                             >
                                 <Button variant="ghost" onClick={() => setUploadedImage(state.uploadedImage)}>
                                     <Replace className="mr-2 h-4 w-4"/>
-                                    New Style
+                                    {t('new_style')}
                                 </Button>
                                 {anyImageFailed ? (
                                      <Button onClick={handleRegenerateAll} size="lg" disabled={state.isGenerating}>
                                         <Wand2 className="mr-2 h-4 w-4"/>
-                                        {state.isGenerating ? 'Regenerating...' : 'Try Again'}
+                                        {state.isGenerating ? t('generating') : t('try_again')}
                                      </Button>
                                 ) : (
                                     <>
                                         <Button variant="secondary" onClick={handleDownloadFourUpSheet} disabled={isDownloading}>
                                             <Download className="mr-2 h-4 w-4"/>
-                                            {isDownloading ? 'Upscaling...' : 'Download 4-Up'}
+                                            {isDownloading ? t('generating') : t('download_4_up')}
                                         </Button>
                                         <Button variant="secondary" onClick={handleShareFourUpSheet} disabled={isSharing}>
                                             <Share2 className="mr-2 h-4 w-4"/>
-                                            {isSharing ? 'Sharing...' : 'Share 4-Up'}
+                                            {isSharing ? t('generating') : t('share_4_up')}
                                         </Button>
                                     </>
                                 )}
@@ -640,7 +654,7 @@ function App() {
                              <div className="flex justify-center mt-6">
                                 <Button onClick={handleGenerateVideoClick} size="lg" disabled={state.videoStatus === 'generating'}>
                                     <Wand2 className="mr-2 h-4 w-4"/>
-                                    {state.videoStatus === 'generating' ? 'Creating Video...' : 'Create 360° Video'}
+                                    {state.videoStatus === 'generating' ? t('creating_video') : t('create_video')}
                                 </Button>
                              </div>
                         )}
@@ -698,7 +712,7 @@ function App() {
                     </div>
                     <Button variant="secondary" onClick={() => useStore.getState().setHistoryPanelOpen(true)}>
                         <History className="mr-2 h-4 w-4"/>
-                        History ({state.generationHistory.length})
+                        {t('history')} ({state.generationHistory.length})
                     </Button>
                 </div>
             </header>

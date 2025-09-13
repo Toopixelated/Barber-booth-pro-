@@ -9,6 +9,7 @@ import { Button } from './ui/button';
 import { Twitter, Facebook, Copy, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getUpscaler } from '../lib/upscaler';
+import { useTranslation } from 'react-i18next';
 
 // Helper to convert data URL to Blob for clipboard API
 async function dataURLtoBlob(dataurl: string): Promise<Blob> {
@@ -17,13 +18,14 @@ async function dataURLtoBlob(dataurl: string): Promise<Blob> {
 }
 
 const ShareMenu: React.FC = () => {
+    const { t } = useTranslation();
     const { isShareMenuOpen, closeShareMenu, shareContent } = useStore();
     const [isUpscaling, setIsUpscaling] = useState(false);
 
     if (!isShareMenuOpen || !shareContent) return null;
 
     const { url, type, title } = shareContent;
-    const shareText = `Check out this hairstyle I created with Barber Booth Pro!`;
+    const shareText = t('share_text');
     const projectUrl = "https://github.com/google-gemini-v2/codestrela/tree/main/barber-booth";
 
     const handleCopy = async () => {
@@ -34,13 +36,13 @@ const ShareMenu: React.FC = () => {
                 await navigator.clipboard.write([
                     new ClipboardItem({ [blob.type]: blob })
                 ]);
-                toast.success('Image copied to clipboard!');
+                toast.success(t('copy_success'));
             } catch (error) {
                 console.error('Failed to copy image:', error);
-                toast.error('Could not copy image. Please download it instead.');
+                toast.error(t('copy_error'));
             }
         } else {
-            toast.error('Cannot copy video. Please download it to share.');
+            toast.error(t('copy_error_video'));
         }
     };
     
@@ -59,19 +61,19 @@ const ShareMenu: React.FC = () => {
         
         setIsUpscaling(true);
         let scale = 2; // default
-        const toastId = toast.loading('Starting upscaler...');
+        const toastId = toast.loading(t('upscaling_start'));
         try {
             const { instance: upscaler, scale: modelScale } = await getUpscaler();
             scale = modelScale;
-            toast.loading(`Upscaling image (${scale}x)... (0%)`, { id: toastId });
+            toast.loading(t('upscaling_progress', { scale, progress: 0 }), { id: toastId });
             
             const upscaledUrl = await upscaler.upscale(url, {
                 output: 'base64',
                 patchSize: 64,
                 padding: 2,
-                progress: (p) => toast.loading(`Upscaling... ${Math.round(p * 100)}%`, { id: toastId })
+                progress: (p) => toast.loading(t('upscaling_progress', { scale, progress: Math.round(p * 100) }), { id: toastId })
             });
-            toast.success('Upscaling complete!', { id: toastId });
+            toast.success(t('upscaling_complete'), { id: toastId });
 
             const link = document.createElement('a');
             link.href = upscaledUrl;
@@ -81,7 +83,7 @@ const ShareMenu: React.FC = () => {
             document.body.removeChild(link);
         } catch (error) {
             console.error("Upscaling failed:", error);
-            toast.error(`Upscaling failed (${scale}x). Downloading original image.`, { id: toastId });
+            toast.error(t('upscaling_failed', { scale }), { id: toastId });
             // Fallback to downloading original image
             const link = document.createElement('a');
             link.href = url;
@@ -95,12 +97,12 @@ const ShareMenu: React.FC = () => {
     };
 
     const socialLinks = [
-        { name: 'Twitter', icon: Twitter, url: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(projectUrl)}` },
-        { name: 'Facebook', icon: Facebook, url: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(projectUrl)}` },
+        { name: t('twitter'), icon: Twitter, url: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(projectUrl)}` },
+        { name: t('facebook'), icon: Facebook, url: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(projectUrl)}` },
     ];
 
     return (
-        <Dialog isOpen={isShareMenuOpen} onClose={closeShareMenu} title={`Share ${title}`} className="w-full max-w-md">
+        <Dialog isOpen={isShareMenuOpen} onClose={closeShareMenu} title={`${t('share')} ${title}`} className="w-full max-w-md">
             <div className="flex flex-col gap-4">
                 {type === 'image' ? (
                     <img src={url} alt={title} className="w-full rounded-lg object-cover aspect-square" />
@@ -108,7 +110,7 @@ const ShareMenu: React.FC = () => {
                     <video src={url} controls autoPlay loop muted className="w-full rounded-lg" />
                 )}
                 <p className="text-sm text-center text-neutral-400">
-                    To share on social media, please download the file first, then upload it in your post.
+                    {t('share_social_media')}
                 </p>
                 <div className="grid grid-cols-2 gap-3">
                     {socialLinks.map(social => (
@@ -123,11 +125,11 @@ const ShareMenu: React.FC = () => {
                  <div className="grid grid-cols-2 gap-3">
                      <Button onClick={handleCopy} variant="secondary" disabled={type === 'video'}>
                         <Copy className="mr-2 h-4 w-4" />
-                        {type === 'image' ? 'Copy Image' : 'Copy (Not supported)'}
+                        {type === 'image' ? t('copy_image') : t('copy_not_supported')}
                      </Button>
                      <Button onClick={handleDownload} variant="primary" disabled={isUpscaling}>
                         <Download className="mr-2 h-4 w-4" />
-                        {isUpscaling ? 'Upscaling...' : 'Download'}
+                        {isUpscaling ? t('upscaling') : t('download')}
                      </Button>
                  </div>
             </div>
