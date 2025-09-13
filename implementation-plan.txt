@@ -1,0 +1,106 @@
+# Barber Booth Pro: Implementation Plan
+
+This document outlines the concrete, numbered tasks required to implement the features and improvements detailed in `specsheet.txt`. It is designed to be used for task tracking and execution.
+
+---
+
+### Phase 1: Environment & Testing Setup (T001-T010)
+This phase focuses on establishing a robust, professional development and testing environment.
+
+- **T001**: **Initialize Project for Standard Development.**
+  - **Action**: Run `npm install` to ensure all dependencies from `package.json` are installed correctly.
+  - **Depends on**: None.
+
+- **T002**: **Install E2E Testing Framework (Playwright).**
+  - **Action**: Run `npm install --save-dev @playwright/test`.
+  - **Depends on**: T001.
+
+- **T003**: **Install System Dependencies for Playwright.**
+  - **Action**: Run `npx playwright install --with-deps` to download browser binaries and ensure the headless environment is ready.
+  - **Depends on**: T002.
+
+- **T004**: **Configure Playwright.**
+  - **Action**: Create `playwright.config.ts`. Configure it to use Vite's dev server, and ensure the `webServer` configuration is dynamic (no hardcoded URL) to prevent port conflicts.
+  - **Depends on**: T003.
+
+- **T005**: **Install Mocking Library (MSW).**
+  - **Action**: Run `npm install --save-dev msw`.
+  - **Depends on**: T001.
+
+- **T006**: **Initialize MSW for Browser Environment.**
+  - **Action**: Run `npx msw init public/ --save` to create the mock service worker file (`public/mockServiceWorker.js`).
+  - **Depends on**: T005.
+
+- **T007**: **Create MSW Request Handlers.**
+  - **Action**: Create a `src/mocks/handlers.ts` file. Define request handlers to intercept calls to the Gemini API (`https://generativelanguage.googleapis.com`) and return mock responses.
+  - **Depends on**: T005.
+
+- **T008**: **Integrate MSW with Vite Dev Server.**
+  - **Action**: Create `src/mocks/browser.ts` to set up the worker. Modify `src/main.tsx` (or equivalent entry point) to conditionally start the MSW worker in development mode.
+  - **Depends on**: T007.
+
+- **T009**: **Create Test Fixtures.**
+  - **Action**: Create a `tests/fixtures/` directory. Add a test image file (e.g., `test-image.jpg`) for use in upload tests.
+  - **Depends on**: T004.
+
+- **T010**: **[P] Set up Linting and Formatting.**
+  - **Action**: Install and configure ESLint and Prettier for code consistency. Add corresponding scripts to `package.json`.
+  - **Depends on**: T001.
+
+---
+
+### Phase 2: E2E Test Implementation & Validation (T011-T020)
+This phase focuses on building out the core test suite to validate application functionality.
+
+- **T011**: **Write First E2E Test (Image Upload).**
+  - **Action**: Create `tests/app.spec.ts`. Write a test that verifies a user can upload an image and the editor works correctly.
+  - **Depends on**: T008, T009.
+
+- **T012**: **Write E2E Test (Hairstyle Generation).**
+  - **Action**: Add a test to `tests/app.spec.ts` that covers the generation flow. It must perform an upload, enter a prompt, click generate, and assert that the mocked image from the MSW handler is displayed correctly.
+  - **Depends on**: T011.
+
+- **T013**: **Write E2E Test (Upscaling & Download).**
+  - **Action**: Add a test that verifies the upscale and download flow. This test should check that clicking "Download" triggers a file download event.
+  - **Depends on**: T012.
+
+- **T014**: **[P] Write E2E Test (History Panel).**
+  - **Action**: Write a test to verify that after a generation, the result appears in the history panel and can be restored.
+  - **Depends on**: T012.
+
+- **T015**: **Run Full Test Suite.**
+  - **Action**: Execute `npx playwright test` and debug any failures until all tests pass 100%.
+  - **Depends on**: T013, T014.
+
+- **T016**: **[P] Write Unit Tests for `albumUtils.ts`.**
+  - **Action**: Use Jest (to be installed) to write unit tests for the image cropping and resizing logic in `lib/albumUtils.ts`.
+  - **Depends on**: T010.
+
+- **T017**: **[P] Write Unit Tests for `upscaler.ts`.**
+  - **Action**: Write unit tests to verify the singleton logic and fallback mechanisms in `lib/upscaler.ts`.
+  - **Depends on**: T010.
+
+- **T018 - T020**: *Reserved for additional tests (e.g., video generation flow, error states).*
+
+---
+
+### Phase 3: CI/CD & Polish (T021-T030)
+This phase focuses on automating the validation and deployment process.
+
+- **T021**: **Create GitHub Actions Workflow for Testing.**
+  - **Action**: Create a `.github/workflows/ci.yml` file. This workflow should trigger on every push/PR and run `npm install`, `lint`, and `npx playwright test`.
+  - **Depends on**: T015.
+
+- **T022**: **Create GitHub Actions Workflow for Deployment.**
+  - **Action**: Create a `.github/workflows/deploy.yml` file. This workflow should trigger on a merge to `main`, build the application (`npm run build`), and deploy it to a static hosting provider like Vercel.
+  - **Depends on**: T021.
+
+- **T023**: **Create `changelog.md`.**
+  - **Action**: Create the `changelog.md` file with the initial `v1.1.0` entry.
+  - **Depends on**: None.
+
+- **T024**: **Integrate Sentry for Error Monitoring.**
+  - **Action**: Add the Sentry SDK and initialize it in the application's entry point to monitor for production errors.
+  - **Depends on**: T022.
+
+- **T025 - T030**: *Reserved for future tasks from the roadmap (i18n, video upscaling, etc.).*

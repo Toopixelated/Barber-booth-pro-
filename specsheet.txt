@@ -1,0 +1,211 @@
+# Barber Booth Pro: Technical Specification
+- **ID**: BBP-SPEC-V2.1
+- **Author**: Jules, Gemini 2.5 Pro Agent
+- **Date**: 2025-09-12
+- **Status**: DRAFT
+
+---
+
+## 1. Overview & Constitution
+
+Barber Booth Pro is a client-only Progressive Web App (PWA) that provides users with a photorealistic, multi-angle preview of new hairstyles using generative AI. It prioritizes a seamless, mobile-first experience, high-quality visual output, and robust error handling in a browser-based environment.
+
+### 1.1. Constitution (Core Principles) Validation
+- **[x] PWA-First**: The app is installable, with a service worker for offline shell access and a robust upscaling fallback system that ensures functionality even without a network connection for core tasks.
+- **[x] Simplicity**: It maintains a single, client-side codebase. It prefers stable, built-in solutions (like the default upscaler model fallback) over adding complex external dependencies.
+- **[ ] Test-First Mindset**: The application was designed with testability in mind, but the E2E test suite is not yet implemented. This `specsheet.txt` and the accompanying `implementation-plan.txt` are the first steps to remedy this.
+- **[x] Observability**: The app provides clear feedback to the user for all asynchronous operations via progress toasts and descriptive error messages.
+
+---
+
+## 2. Features
+
+### 2.1. PWA & Core App Shell
+- **Execution Flow**: The `service-worker.js` caches core assets upon installation, enabling basic offline functionality. The `App.tsx` component manages the `beforeinstallprompt` event to allow users to install the PWA.
+- **Gherkin Scenarios**:
+  ```gherkin
+  Scenario: User installs the PWA for offline use
+    Given the user is on a supported browser
+    When they visit the application URL
+    Then an "Add to Home Screen" or "Install" option should be available.
+    When the user accepts the installation
+    And disconnects from the internet
+    Then they should be able to launch the app and see the main UI shell.
+  ```
+- **E2E Test Scenario (Playwright)**:
+  ```javascript
+  test('should be installable and work offline', async ({ page }) => {
+    // Note: True PWA installation testing is complex in Playwright.
+    // This test verifies the service worker is registered.
+    await page.goto('/');
+    const swURL = await page.evaluate(() => window.navigator.serviceWorker.controller?.scriptURL);
+    expect(swURL).toContain('service-worker.js');
+  });
+  ```
+- **Requirements**:
+  - **FR-PWA-01**: The application MUST be installable via `./manifest.json` with relative paths.
+  - **FR-PWA-02**: The service worker MUST cache the core application shell for offline access.
+  - **NFR-PWA-01**: The app MUST achieve a Lighthouse PWA score of 90+.
+  - **NFR-PWA-02**: First contentful paint MUST be under 5 seconds on a simulated slow 4G connection.
+
+### 2.2. Image Input & Editing
+- **Entities/Schema**:
+  - `UploadedImage: { dataUrl: string; width: number; height: number; }`
+- **Gherkin Scenarios**:
+  ```gherkin
+  Scenario: User uploads an image from a file
+    Given the user is on the main screen
+    When they click "Upload Photo" and select a valid image file (JPG, PNG)
+    Then the Image Editor modal should open with the selected image.
+    When they save the image
+    Then the main UI should display the cropped image.
+  ```
+- **Requirements**:
+  - **FR-IMG-01**: The app MUST accept `image/png`, `image/jpeg`, and `image/webp` file types.
+  - **FR-IMG-02**: The image editor MUST enforce a 1:1 aspect ratio.
+  - **NFR-IMG-01**: The app MUST provide clear visual feedback for invalid file uploads within 1 second.
+
+### 2.3. AI Hairstyle Generation (4-Up Grid)
+- **State Flow Diagram (Mermaid)**:
+  ```mermaid
+  graph TD
+      A[Idle] -->|Upload Image| B(ImageReady);
+      B -->|Enter Prompt & Click Generate| C(Generating);
+      C -->|API Success| D{ResultsReady};
+      C -->|API Error| E{ErrorState};
+      D --> A;
+      E --> B;
+  ```
+- **Gherkin Scenarios**:
+  ```gherkin
+  Scenario: User successfully generates a 4-up hairstyle grid
+    Given the user has uploaded an image and entered a prompt
+    When they click "Generate Pro"
+    Then the UI should enter a "generating" state with a loading indicator.
+    And upon success, the UI should display four new images in a grid.
+  ```
+- **Requirements**:
+  - **FR-GEN-01**: The system MUST make a single API call to `gemini-2.5-flash-image-preview` to generate all four views.
+  - **FR-GEN-02**: The prompt MUST include the "Identity Preservation" rule.
+  - **FR-GEN-03**: The service layer MUST retry up to 3 times on transient API errors (e.g., 500 status code).
+  - **NFR-GEN-01**: The end-to-end generation process (from click to display) MUST complete in under 30 seconds for 95% of users.
+
+### 2.4. High-Resolution Upscaling & Download
+- **Sequence Diagram (Mermaid)**:
+  ```mermaid
+  sequenceDiagram
+      participant User
+      participant AppUI
+      participant UpscalerUtil as upscaler.ts
+      participant FallbackAPI
+      User->>AppUI: Click Download
+      AppUI->>UpscalerUtil: getUpscaler()
+      UpscalerUtil->>UpscalerUtil: Init TF.js (WebGL, fallback CPU)
+      UpscalerUtil->>UpscalerUtil: Dynamic import 4x model
+      alt 4x Model Load Fails
+          UpscalerUtil->>UpscalerUtil: Fallback to built-in 2x model
+      end
+      AppUI->>UpscalerUtil: upscale(image, { patchSize: 64 })
+      activate UpscalerUtil
+      UpscalerUtil-->>AppUI: Progress callback (toast update)
+      deactivate UpscalerUtil
+      alt Upscaling Fails
+          AppUI->>FallbackAPI: Request upscale (not implemented)
+          FallbackAPI-->>AppUI: Upscaled Image
+      else Success
+          AppUI->>User: Provide download link
+      end
+  ```
+- **E2E Test Scenario (Playwright)**:
+  ```javascript
+  test('should upscale an image and verify download size', async ({ page }) => {
+    // ... setup: navigate, mock API, upload, generate
+    const downloadPromise = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Download' }).click();
+    const download = await downloadPromise;
+    const downloadedBuffer = await download.createReadStream().readAll();
+    // Assertion: The upscaled file (even if a mock) should be larger than the original.
+    expect(downloadedBuffer.length).toBeGreaterThan(1000); // Placeholder size
+  });
+  ```
+- **Requirements**:
+  - **FR-UP-001**: The application MUST upscale images using `patchSize: 64` and `padding: 2` to prevent WebGL texture limit errors.
+  - **FR-UP-002**: The system MUST provide real-time progress feedback to the user via a toast notification during upscaling.
+  - **FR-UP-003**: The system MUST gracefully fall back to downloading the original, non-upscaled image if the upscaling process fails.
+  - **NFR-UP-001**: Upscaling of a single 1024x1024 image should complete in under 15 seconds for 95% of users on a mid-range device with WebGL.
+
+### 2.5. History & State Management
+- **Entities/Schema**:
+  - `HistoryItem: { id: string; timestamp: number; prompt: string; images: Record<Angle, string>; videoUrl?: string; }`
+  - `Angle: 'front' | 'left' | 'right' | 'back'`
+- **Gherkin Scenarios**:
+  ```gherkin
+  Scenario: User restores a previous session from history
+    Given the user has at least one item in their generation history
+    When they open the History Panel and click "Restore" on an item
+    Then the main UI should be populated with the images and prompt from that history item.
+  ```
+- **Requirements**:
+  - **FR-HIST-01**: The generation history MUST be automatically saved to `localStorage` upon successful completion of a 4-up grid.
+  - **FR-HIST-02**: Images stored in history MUST be compressed to a maximum dimension of 512px to manage storage quota.
+  - **FR-HIST-03**: The application MUST cap the history at 50 items, automatically pruning the oldest entry when the limit is exceeded (FIFO).
+
+---
+
+## 3. Technical Context & Risks
+
+### 3.1. Technical Context
+- **Stack**: React 19, Zustand, Tailwind CSS, Vite, Playwright, MSW.
+- **Environment**: Originally a sandboxed IDE using an `importmap`, now transitioning to a standard Vite + npm setup. This explains the relative paths and some of the dependency workarounds.
+
+### 3.2. Risks & Mitigations
+| ID | Risk | Mitigation Strategy |
+|---|---|---|
+| R-01 | **Upscaler.js WebGL Crash**: Exceeding texture memory limits on large images. | **Implemented**. Patch-based processing (`patchSize`) is used for all upscale operations. |
+| R-02 | **API Quota/Rate Limiting**: Hitting Gemini API limits during high traffic. | **Partially Implemented**. The service includes a retry-with-backoff mechanism. **Proposed**: Use MSW in E2E tests to eliminate API calls during testing. For production, implement a more robust queueing system or user-facing "try again later" messages. |
+| R-03 | `localStorage` Quota Exceeded**: History grows too large. | **Implemented**. History is capped at 50 items, and all stored images are compressed. |
+| R-04 | **Framer Motion TS Errors**: Type inference failures in the sandboxed IDE. | **Implemented (Workaround)**. Targeted use of prop spreading and `as any` type casting. These should be reviewed and removed where possible in the new Vite environment. |
+
+---
+
+## 4. Testing, Deployment, & Roadmap
+
+### 4.1. Testing & Validation Strategy
+- **Unit Testing (Jest)**: Target utility functions in `lib/` (e.g., `albumUtils.ts`, `upscaler.ts` singleton logic).
+- **E2E Testing (Playwright + MSW)**:
+  - **Setup**: Use Mock Service Worker (MSW) to mock all Gemini API endpoints. This provides stable, fast, and predictable responses without needing real API keys.
+  - **Flows**: (1) Core: Upload -> Generate -> Verify 4 images. (2) Upscale: Core flow -> Download -> Verify downloaded file is larger than original.
+- **Manual Testing**: Focus on mobile device testing for PWA installation, touch interactions, and WebGL performance under throttling.
+- **Success Metrics**:
+  - **NFR-TEST-01**: 95% of E2E tests must pass on every commit.
+  - **NFR-PERF-01**: App's initial load (Largest Contentful Paint) must be < 5s on a slow 4G network.
+
+### 4.2. Deployment & CI/CD
+1.  **Build**: Use Vite (`npm run build`) to create a production-ready bundle.
+2.  **CI/CD (GitHub Actions)**:
+    - On every PR, run: `lint`, `test:unit`, `test:e2e`.
+    - On merge to `main`, automatically deploy the build artifact to Vercel or a similar static hosting provider.
+3.  **Monitoring**: Integrate Sentry or a similar service to capture and report runtime errors in production.
+
+### 4.3. Versioning & Changelog
+- **Versioning**: Use Semantic Versioning (SemVer). The current version after these changes will be `v1.1.0`.
+- **Changelog (`changelog.md`)**:
+  ```markdown
+  # Changelog
+  ## [1.1.0] - 2025-09-12
+  ### Added
+  - E2E testing suite using Playwright and MSW.
+  - This `specsheet.txt` and `implementation-plan.txt`.
+  ### Fixed
+  - Potential E2E test failures due to hardcoded ports in Playwright config.
+  ```
+
+### 4.4. Project Roadmap (3-6 Months)
+- **Q4 2025**:
+  - **T001**: Implement the full E2E test suite with MSW.
+  - **T002**: Add i18n support for Spanish and French.
+  - **T003**: Set up the full CI/CD pipeline in GitHub Actions.
+- **Q1 2026**:
+  - **T004**: Investigate and implement video upscaling.
+  - **T005**: Research and prototype premium features (e.g., more hairstyle packs, advanced color blending).
+  - **T006**: Explore AR integration for live hairstyle previews.
