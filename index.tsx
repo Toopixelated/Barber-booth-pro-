@@ -7,6 +7,15 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { Toaster } from 'react-hot-toast';
+import { registerSW } from 'virtual:pwa-register';
+
+const updateServiceWorker = registerSW({
+  onNeedRefresh() {
+    if (confirm('New content is available. Click OK to refresh.')) {
+      updateServiceWorker(true);
+    }
+  },
+});
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
