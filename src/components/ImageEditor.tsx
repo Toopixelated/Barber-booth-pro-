@@ -6,7 +6,7 @@
 import React, { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import ReactCrop, { centerCrop, makeAspectCrop, Crop, PixelCrop } from 'react-image-crop';
-import { Button } from './ui/button';
+import { Button } from '@/components/ui/button';
 
 interface ImageEditorProps {
     imageSrc: string;

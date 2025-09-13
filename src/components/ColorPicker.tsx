@@ -5,8 +5,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { HexColorPicker } from 'react-colorful';
 import { useStore } from '../store';
-import { AnimatePresence, motion } from 'framer-motion';
-import { cn } from '../lib/utils';
+import { useStore } from '@/store';
+import { cn } from '@/lib/utils';
 import { Palette, Check, XCircle } from 'lucide-react';
 
 const PRESET_COLORS = [

@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import React from 'react';
-import { Button } from './ui/button';
+import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
-import { useStore } from '../store';
+import { useStore } from '@/store';
 
 const Footer = () => {
     const { installPromptEvent, setInstallPromptEvent } = useStore(state => ({

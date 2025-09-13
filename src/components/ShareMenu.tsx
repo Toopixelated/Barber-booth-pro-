@@ -3,12 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import React, { useState } from 'react';
-import { useStore } from '../store';
-import { Dialog } from './ui/dialog';
-import { Button } from './ui/button';
+import { useStore } from '@/store';
+import { Dialog } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { Twitter, Facebook, Copy, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { getUpscaler } from '../lib/upscaler';
+import { getUpscaler } from '@/lib/upscaler';
 
 // Helper to convert data URL to Blob for clipboard API
 async function dataURLtoBlob(dataurl: string): Promise<Blob> {

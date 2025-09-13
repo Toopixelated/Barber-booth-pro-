@@ -5,8 +5,8 @@
 */
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Card } from './card';
-import { Button } from './button';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
 
 interface DialogProps {

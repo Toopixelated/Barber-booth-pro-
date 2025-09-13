@@ -4,28 +4,28 @@
 */
 import React, { useState, ChangeEvent, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { generateFourUpImage, getHairstyleSuggestions, generateHairstyleVideo } from './services/geminiService';
-import PolaroidCard from './components/PolaroidCard';
-import { createFourUpSheet, compressImageForStorage, cropFourUpSheet } from './lib/albumUtils';
-import Footer from './components/Footer';
-import ImageEditor from './components/ImageEditor';
-import CameraCapture from './components/CameraCapture';
-import { cn } from './lib/utils';
-import HistoryPanel from './components/HistoryPanel';
-import VideoPreview from './components/VideoPreview';
-import { useStore, HistoryItem, GeneratedImage } from './store';
-import { Button } from './components/ui/button';
-import { Card, CardContent } from './components/ui/card';
+import { generateFourUpImage, getHairstyleSuggestions, generateHairstyleVideo } from '@/services/geminiService';
+import PolaroidCard from '@/components/PolaroidCard';
+import { createFourUpSheet, compressImageForStorage, cropFourUpSheet } from '@/lib/albumUtils';
+import Footer from '@/components/Footer';
+import ImageEditor from '@/components/ImageEditor';
+import CameraCapture from '@/components/CameraCapture';
+import { cn } from '@/lib/utils';
+import HistoryPanel from '@/components/HistoryPanel';
+import VideoPreview from '@/components/VideoPreview';
+import { useStore, HistoryItem, GeneratedImage } from '@/store';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 // FIX: Added 'Download' to the import from lucide-react to fix usage error.
 import { Camera, FileImage, Wand2, Replace, Trash2, Share2, Download, History, Lightbulb, X } from 'lucide-react';
-import ColorPicker from './components/ColorPicker';
+import ColorPicker from '@/components/ColorPicker';
 import toast from 'react-hot-toast';
-import ShareMenu from './components/ShareMenu';
+import ShareMenu from '@/components/ShareMenu';
 // FIX: Imported the LoadingSpinner component to resolve reference error.
-import LoadingSpinner from './components/LoadingSpinner';
+import LoadingSpinner from '@/components/LoadingSpinner';
 // FIX: Import 'attemptShare' to resolve 'Cannot find name' error.
-import { attemptShare } from './lib/shareUtils';
-import { getUpscaler } from './lib/upscaler';
+import { attemptShare } from '@/lib/shareUtils';
+import { getUpscaler } from '@/lib/upscaler';
 
 export type Angle = 'front' | 'left' | 'right' | 'back';
 export const ANGLES: Angle[] = ['front', 'left', 'right', 'back'];

@@ -4,14 +4,16 @@
 */
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import type { GenerateContentResponse, Part, GenerateVideosOperation } from "@google/genai";
-import type { Angle } from "../App";
-import { resizeImageForApi } from "../lib/albumUtils";
+import type { Angle } from '@/App';
+import { resizeImageForApi } from '@/lib/albumUtils';
 
-// FIX: Check for both API_KEY and API_key to handle environment inconsistencies.
-const API_KEY = process.env.API_KEY || (window as any).process?.env?.API_key;
+const API_KEY = import.meta.env.VITE_API_KEY;
 
 if (!API_KEY) {
-  throw new Error("API_KEY or API_key environment variable is not set");
+  // In a Vite environment, we can't show a throw in the browser
+  // so we'll show an alert and log an error.
+  alert("VITE_API_KEY environment variable is not set. Please add it to your .env file.");
+  console.error("VITE_API_KEY environment variable is not set");
 }
 
 const ai = new GoogleGenAI({ apiKey: API_KEY });

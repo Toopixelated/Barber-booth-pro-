@@ -4,8 +4,8 @@
 */
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Button } from './ui/button';
-import LoadingSpinner from './LoadingSpinner';
+import { Button } from '@/components/ui/button';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { X, SwitchCamera } from 'lucide-react';
 
 interface CameraCaptureProps {

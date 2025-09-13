@@ -2,7 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import { cn } from "../../lib/utils";
+import { cn } from "@/lib/utils";
 import React, { useRef } from "react";
 // FIX: Removed PanInfo from import as it is no longer an exported member.
 import {

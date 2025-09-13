@@ -3,13 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import React from 'react';
-import { cn } from '../lib/utils';
-import { Card, CardContent } from './ui/card';
-import LoadingSpinner from './LoadingSpinner';
-import { Button } from './ui/button';
+import { cn } from '@/lib/utils';
+import { Card, CardContent } from '@/components/ui/card';
+import LoadingSpinner from '@/components/LoadingSpinner';
+import { Button } from '@/components/ui/button';
 import { Download, X, AlertTriangle, Share2 } from 'lucide-react';
-import { useStore } from '../store';
-import { attemptShare } from '../lib/shareUtils';
+import { useStore } from '@/store';
+import { attemptShare } from '@/lib/shareUtils';
 
 type VideoStatus = 'generating' | 'done' | 'error';
 

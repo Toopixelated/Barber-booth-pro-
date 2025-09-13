@@ -2,7 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import type { Angle } from '../App';
+import type { Angle } from '@/App';
 
 // Helper function to load an image and return it as an HTMLImageElement
 function loadImage(src: string): Promise<HTMLImageElement> {

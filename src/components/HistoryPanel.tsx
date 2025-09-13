@@ -4,9 +4,9 @@
 */
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useStore } from '../store';
-import { cn } from '../lib/utils';
-import { Button } from './ui/button';
+import { useStore } from '@/store';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import { X, Star, Trash2 } from 'lucide-react';
 
 const HistoryPanel: React.FC = () => {

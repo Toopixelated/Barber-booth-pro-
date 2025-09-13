@@ -3,18 +3,18 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import React, { useState, useEffect, useTransition } from 'react';
-import { cn } from '../lib/utils';
-import type { Angle } from '../App';
-import { Card } from './ui/card';
-import LoadingSpinner from './LoadingSpinner';
+import { cn } from '@/lib/utils';
+import type { Angle } from '@/App';
+import { Card } from '@/components/ui/card';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Button } from './ui/button';
+import { Button } from '@/components/ui/button';
 import { Download, Repeat, AlertTriangle, GitCompareArrows, Share2 } from 'lucide-react';
-import { useStore } from '../store';
-import { attemptShare } from '../lib/shareUtils';
-import ComparisonSlider from './ComparisonSlider';
+import { useStore } from '@/store';
+import { attemptShare } from '@/lib/shareUtils';
+import ComparisonSlider from '@/components/ComparisonSlider';
 import toast from 'react-hot-toast';
-import { getUpscaler } from '../lib/upscaler';
+import { getUpscaler } from '@/lib/upscaler';
 
 type ImageStatus = 'pending' | 'done' | 'error';
 

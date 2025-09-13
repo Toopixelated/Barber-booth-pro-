@@ -1,11 +1,7 @@
-
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
-*/
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import './index.css';
 import { Toaster } from 'react-hot-toast';
 
 const rootElement = document.getElementById('root');
@@ -13,7 +9,6 @@ if (!rootElement) {
   throw new Error("Could not find root element to mount to");
 }
 
-// FIX: Corrected typo from create_root to createRoot
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
