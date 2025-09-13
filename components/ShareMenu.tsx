@@ -1,14 +1,14 @@
-
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import React from 'react';
+import React, { useState } from 'react';
 import { useStore } from '../store';
 import { Dialog } from './ui/dialog';
 import { Button } from './ui/button';
 import { Twitter, Facebook, Copy, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { getUpscaler } from '../lib/upscaler';
 
 // Helper to convert data URL to Blob for clipboard API
 async function dataURLtoBlob(dataurl: string): Promise<Blob> {
@@ -18,6 +18,7 @@ async function dataURLtoBlob(dataurl: string): Promise<Blob> {
 
 const ShareMenu: React.FC = () => {
     const { isShareMenuOpen, closeShareMenu, shareContent } = useStore();
+    const [isUpscaling, setIsUpscaling] = useState(false);
 
     if (!isShareMenuOpen || !shareContent) return null;
 
@@ -43,14 +44,55 @@ const ShareMenu: React.FC = () => {
         }
     };
     
-    const handleDownload = () => {
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `barber-booth-pro-${type === 'image' ? title.toLowerCase() : 'video'}.${type === 'image' ? 'jpg' : 'mp4'}`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    }
+    const handleDownload = async () => {
+        if (isUpscaling) return;
+
+        if (type === 'video') {
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `barber-booth-pro-video.mp4`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            return;
+        }
+        
+        setIsUpscaling(true);
+        let scale = 2; // default
+        const toastId = toast.loading('Starting upscaler...');
+        try {
+            const { instance: upscaler, scale: modelScale } = await getUpscaler();
+            scale = modelScale;
+            toast.loading(`Upscaling image (${scale}x)... (0%)`, { id: toastId });
+            
+            const upscaledUrl = await upscaler.upscale(url, {
+                output: 'base64',
+                patchSize: 64,
+                padding: 2,
+                progress: (p) => toast.loading(`Upscaling... ${Math.round(p * 100)}%`, { id: toastId })
+            });
+            toast.success('Upscaling complete!', { id: toastId });
+
+            const link = document.createElement('a');
+            link.href = upscaledUrl;
+            link.download = `barber-booth-pro-${title.toLowerCase()}-upscaled.jpg`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (error) {
+            console.error("Upscaling failed:", error);
+            toast.error(`Upscaling failed (${scale}x). Downloading original image.`, { id: toastId });
+            // Fallback to downloading original image
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `barber-booth-pro-${title.toLowerCase()}.jpg`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } finally {
+            setIsUpscaling(false);
+        }
+    };
 
     const socialLinks = [
         { name: 'Twitter', icon: Twitter, url: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(projectUrl)}` },
@@ -83,9 +125,9 @@ const ShareMenu: React.FC = () => {
                         <Copy className="mr-2 h-4 w-4" />
                         {type === 'image' ? 'Copy Image' : 'Copy (Not supported)'}
                      </Button>
-                     <Button onClick={handleDownload} variant="primary">
+                     <Button onClick={handleDownload} variant="primary" disabled={isUpscaling}>
                         <Download className="mr-2 h-4 w-4" />
-                        Download
+                        {isUpscaling ? 'Upscaling...' : 'Download'}
                      </Button>
                  </div>
             </div>

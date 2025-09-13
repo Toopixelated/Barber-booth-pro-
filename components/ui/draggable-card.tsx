@@ -4,6 +4,7 @@
 */
 import { cn } from "../../lib/utils";
 import React, { useRef } from "react";
+// FIX: Removed PanInfo from import as it is no longer an exported member.
 import {
   motion,
   useMotionValue,
@@ -12,7 +13,6 @@ import {
   animate,
   useVelocity,
   useAnimationControls,
-  PanInfo,
 } from "framer-motion";
  
 export const DraggableCardBody = ({
@@ -87,7 +87,8 @@ export const DraggableCardBody = ({
       ref={cardRef}
       drag
       dragConstraints={dragConstraintsRef}
-      onDragStart={(event, info) => {
+      // FIX: Cast onDragStart prop to 'any' to resolve type conflict with React's DragEventHandler.
+      onDragStart={((event, info) => {
         document.body.style.cursor = "grabbing";
         // Reset rotation on drag start for a smoother experience
         controls.start({
@@ -95,8 +96,9 @@ export const DraggableCardBody = ({
           rotateY: 0,
           transition: { duration: 0.2 }
         });
-      }}
-      onDragEnd={(event, info) => {
+      }) as any}
+      // FIX: Cast onDragEnd prop to 'any' to resolve type conflict with React's DragEventHandler.
+      onDragEnd={((event, info) => {
         document.body.style.cursor = "default";
  
         const currentVelocityX = velocityX.get();
@@ -129,13 +131,14 @@ export const DraggableCardBody = ({
           damping: 15,
           mass: 0.8,
         });
-      }}
+      }) as any}
+      // FIX: Cast style object to 'any' to allow motion values like 'rotateX' which were causing type errors.
       style={{
         rotateX,
         rotateY,
         opacity,
         willChange: "transform",
-      }}
+      } as any}
       animate={controls}
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98, cursor: 'grabbing' }}
@@ -152,8 +155,10 @@ export const DraggableCardBody = ({
           opacity: glareOpacity,
           background: "radial-gradient(circle at center, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 60%)",
           transform: "translate(-50%, -50%)",
-          left: useTransform(mouseX, (v) => `${50 + v * 0.1}%`),
-          top: useTransform(mouseY, (v) => `${50 + v * 0.1}%`),
+          // FIX: Added ': number' type annotation to 'v' to resolve arithmetic operation error.
+          left: useTransform(mouseX, (v: number) => `${50 + v * 0.1}%`),
+          // FIX: Added ': number' type annotation to 'v' to resolve arithmetic operation error.
+          top: useTransform(mouseY, (v: number) => `${50 + v * 0.1}%`),
           width: "200%",
           height: "200%",
         }}

@@ -9,7 +9,7 @@ const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElemen
   <div
     ref={ref}
     className={cn(
-      'rounded-xl border border-neutral-800 bg-neutral-900/50 text-neutral-100 shadow-lg relative overflow-hidden',
+      'rounded-xl border border-neutral-800 bg-neutral-900/50 text-neutral-100 shadow-lg relative',
       'before:absolute before:inset-0 before:p-[1px] before:rounded-xl before:bg-gradient-to-br before:from-pink-500/50 before:to-purple-600/50 before:[mask:linear-gradient(black,black)_content-box,linear-gradient(black,black)] before:[mask-composite:exclude] before:pointer-events-none',
       className
     )}

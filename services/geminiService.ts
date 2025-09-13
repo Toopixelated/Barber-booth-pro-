@@ -5,11 +5,13 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import type { GenerateContentResponse, Part, GenerateVideosOperation } from "@google/genai";
 import type { Angle } from "../App";
+import { resizeImageForApi } from "../lib/albumUtils";
 
-const API_KEY = process.env.API_KEY;
+// FIX: Check for both API_KEY and API_key to handle environment inconsistencies.
+const API_KEY = process.env.API_KEY || (window as any).process?.env?.API_key;
 
 if (!API_KEY) {
-  throw new Error("API_KEY environment variable is not set");
+  throw new Error("API_KEY or API_key environment variable is not set");
 }
 
 const ai = new GoogleGenAI({ apiKey: API_KEY });
@@ -47,6 +49,9 @@ async function callGeminiWithRetry(parts: Part[]): Promise<GenerateContentRespon
             return await ai.models.generateContent({
                 model: 'gemini-2.5-flash-image-preview',
                 contents: { parts },
+                config: {
+                    responseModalities: [Modality.IMAGE, Modality.TEXT],
+                },
             });
         } catch (error) {
             console.error(`Error calling Gemini API (Attempt ${attempt}/${maxRetries}):`, error);
@@ -162,27 +167,36 @@ export async function generateFourUpImage(
     const parts: Part[] = [];
     let hairstyleInstructions = '';
 
-    // First image is always the base user photo
-    parts.push(dataUrlToPart(baseImage.dataUrl));
+    // Resize and add the base user photo
+    const resizedBaseImage = await resizeImageForApi(baseImage.dataUrl);
+    parts.push(dataUrlToPart(resizedBaseImage));
 
-    // Hairstyle Source
-    if (options.referenceImage) {
-        parts.push(dataUrlToPart(options.referenceImage));
-        hairstyleInstructions = `Apply the hairstyle from the second image provided.`;
-        if (options.referenceDescription?.trim()) {
-            hairstyleInstructions += ` It is described as: "${options.referenceDescription.trim()}".`;
-        }
-        if (options.modification?.trim()) {
-            hairstyleInstructions += ` Apply this modification: "${options.modification.trim()}".`;
-        }
-    } else if (options.description?.trim()) {
-        hairstyleInstructions = `The hairstyle should be: "${options.description.trim()}".`;
+    // Hairstyle Source Logic
+    if (!options.description?.trim() && !options.referenceImage && options.hairColor) {
+        // Case 1: Only a color is provided.
+        hairstyleInstructions = `Dye the person's current hair to this exact color: ${options.hairColor}. The hairstyle, length, and texture MUST NOT be changed. Only change the hair color.`;
     } else {
-        throw new Error("Either a hairstyle description or a reference image must be provided.");
-    }
-    
-    if (options.hairColor) {
-        hairstyleInstructions += ` The final hair color MUST be exactly this hex code: ${options.hairColor}.`;
+        // Case 2 & 3: Reference image or text description is provided.
+        if (options.referenceImage) {
+            const resizedReferenceImage = await resizeImageForApi(options.referenceImage);
+            parts.push(dataUrlToPart(resizedReferenceImage));
+            hairstyleInstructions = `Apply the hairstyle from the second image provided.`;
+            if (options.referenceDescription?.trim()) {
+                hairstyleInstructions += ` It is described as: "${options.referenceDescription.trim()}".`;
+            }
+            if (options.modification?.trim()) {
+                hairstyleInstructions += ` Apply this modification: "${options.modification.trim()}".`;
+            }
+        } else if (options.description?.trim()) {
+            hairstyleInstructions = `The hairstyle should be: "${options.description.trim()}".`;
+        } else {
+            throw new Error("Either a hairstyle description, a reference image, or just a hair color must be provided.");
+        }
+        
+        // Append color if it exists, for cases 2 & 3.
+        if (options.hairColor) {
+            hairstyleInstructions += ` The final hair color MUST be exactly this hex code: ${options.hairColor}.`;
+        }
     }
 
     const finalPrompt = `
@@ -192,18 +206,18 @@ Hairstyle Details:
 ${hairstyleInstructions}
 
 Output Requirements:
-Generate a single, seamless 2x2 grid image showing the person with their new hairstyle from four different angles. The background should be a simple, consistent studio setting.
+Produce a single, high-quality image that showcases the new hairstyle from four distinct angles, arranged in a 2x2 layout. The background must be a simple, consistent studio setting for all views.
 
-Grid Composition:
-- Top-Left: Front view (must match the original face perfectly).
-- Top-Right: Left Side profile (a 90-degree turn. From the camera's perspective, the subject's nose should be facing towards the left side of the screen).
-- Bottom-Left: Right Diagonal profile (a 45-degree turn. From the camera's perspective, the subject's nose should be facing towards the right side of the screen, ensuring it's a distinct view from the left profile).
+Views to include:
+- Top-Left: Front view. The face must be an exact match to the original image.
+- Top-Right: Left Side profile (a 90-degree turn from the front).
+- Bottom-Left: Right Diagonal profile (a 45-degree turn from the front).
 - Bottom-Right: Back view.
 
 Critical Rules:
-- Identity Preservation: The person's face must be an exact match to the original image.
-- Consistency: The hairstyle, lighting, and background must be uniform across all four views.
-- No Extras: Do not add borders, text, or watermarks. Do not include hands or shoulders.
+- Identity Preservation: The person's facial identity must be perfectly preserved in the front view.
+- Consistency: The hairstyle, hair color, lighting, and background must be uniform across all four views.
+- The final output must be a single image file without any borders, text, or watermarks. Do not include hands or shoulders.
     `.trim();
     
     parts.push({ text: finalPrompt });
@@ -264,7 +278,8 @@ Core Requirements:
 - Do not crop any part of the head or hair.
 `.trim();
 
-    const match = hairstyleImage.dataUrl.match(/^data:(image\/\w+);base64,(.*)$/);
+    const resizedHairstyleImage = await resizeImageForApi(hairstyleImage.dataUrl);
+    const match = resizedHairstyleImage.match(/^data:(image\/\w+);base64,(.*)$/);
     if (!match) {
         throw new Error("Invalid hairstyle image data URL format.");
     }

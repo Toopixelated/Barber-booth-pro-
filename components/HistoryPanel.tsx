@@ -21,8 +21,10 @@ const HistoryPanel: React.FC = () => {
         <AnimatePresence>
             {isHistoryPanelOpen && (
                 <>
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70]" onClick={() => setHistoryPanelOpen(false)} aria-hidden="true" />
-                    <motion.div variants={panelVariants} initial="closed" animate="open" exit="closed" transition={{ type: 'spring', stiffness: 300, damping: 30 }} className="fixed top-0 right-0 h-full w-full max-w-md bg-neutral-900 border-l border-neutral-800 shadow-2xl z-[80] flex flex-col" role="dialog" aria-modal="true" aria-labelledby="history-panel-title">
+                    {/* FIX: Wrapped motion props in a spread object to resolve type error. */}
+                    <motion.div {...{ initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } }} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70]" onClick={() => setHistoryPanelOpen(false)} aria-hidden="true" />
+                    {/* FIX: Wrapped motion props in a spread object to resolve type error. */}
+                    <motion.div {...{ variants: panelVariants, initial: "closed", animate: "open", exit: "closed", transition: { type: 'spring', stiffness: 300, damping: 30 } }} className="fixed top-0 right-0 h-full w-full max-w-md bg-neutral-900 border-l border-neutral-800 shadow-2xl z-[80] flex flex-col" role="dialog" aria-modal="true" aria-labelledby="history-panel-title">
                         <header className="flex-shrink-0 p-4 flex items-center justify-between border-b border-neutral-800">
                             <h2 id="history-panel-title" className="text-xl font-semibold text-white">Generation History</h2>
                             <Button onClick={() => setHistoryPanelOpen(false)} variant="ghost" size="icon" aria-label="Close history panel"><X className="h-4 w-4" /></Button>
@@ -45,7 +47,8 @@ const HistoryPanel: React.FC = () => {
                                 </div>
                             ) : (
                                 filteredHistory.map(item => (
-                                    <motion.div key={item.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-neutral-800/50 p-3 rounded-lg flex gap-4 border border-neutral-700/50">
+                                    // FIX: Wrapped motion props in a spread object to resolve type error.
+                                    <motion.div key={item.id} {...{ initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 } }} className="bg-neutral-800/50 p-3 rounded-lg flex gap-4 border border-neutral-700/50">
                                         <img src={item.uploadedImage} alt="User" className="w-20 h-20 object-cover rounded-md flex-shrink-0" />
                                         <div className="flex-grow min-w-0">
                                             <p className="text-xs text-neutral-400">{new Date(item.timestamp).toLocaleString()}</p>

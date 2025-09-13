@@ -16,6 +16,40 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 }
 
 /**
+ * Resizes an image from a data URL for API submission.
+ * Resizes to a max dimension of 1024px and converts to JPEG.
+ * @param dataUrl The source image data URL.
+ * @returns A promise that resolves to a resized JPEG data URL.
+ */
+export async function resizeImageForApi(dataUrl: string): Promise<string> {
+    const img = await loadImage(dataUrl);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Could not get 2D context for resizing');
+
+    const MAX_DIMENSION = 1024;
+    let { width, height } = img;
+
+    if (width > height) {
+        if (width > MAX_DIMENSION) {
+            height = height * (MAX_DIMENSION / width);
+            width = MAX_DIMENSION;
+        }
+    } else {
+        if (height > MAX_DIMENSION) {
+            width = width * (MAX_DIMENSION / height);
+            height = MAX_DIMENSION;
+        }
+    }
+
+    canvas.width = width;
+    canvas.height = height;
+    ctx.drawImage(img, 0, 0, width, height);
+
+    return canvas.toDataURL('image/jpeg', 0.9); // 90% quality JPEG
+}
+
+/**
  * Crops a single 2x2 grid image into four separate angle images.
  * @param dataUrl The data URL of the 2x2 grid image.
  * @returns A promise that resolves to a record mapping angles to their cropped image data URLs.

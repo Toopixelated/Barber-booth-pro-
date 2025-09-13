@@ -2,7 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useTransition } from 'react';
 import { cn } from '../lib/utils';
 import type { Angle } from '../App';
 import { Card } from './ui/card';
@@ -13,6 +13,8 @@ import { Download, Repeat, AlertTriangle, GitCompareArrows, Share2 } from 'lucid
 import { useStore } from '../store';
 import { attemptShare } from '../lib/shareUtils';
 import ComparisonSlider from './ComparisonSlider';
+import toast from 'react-hot-toast';
+import { getUpscaler } from '../lib/upscaler';
 
 type ImageStatus = 'pending' | 'done' | 'error';
 
@@ -51,12 +53,18 @@ const PolaroidCard: React.FC<ResultCardProps> = ({ imageUrl, caption, status, er
     const [isImageLoaded, setIsImageLoaded] = useState(false);
     const [loadingMessage, setLoadingMessage] = useState(PENDING_MESSAGES[0]);
     const [isComparing, setIsComparing] = useState(false);
-    const { uploadedImage, openShareMenu } = useStore();
+    const [isUpscaling, setIsUpscaling] = useState(false);
+    const [, startTransition] = useTransition();
+    const { comparisonSourceImage, openShareMenu } = useStore();
 
     useEffect(() => {
         if (status === 'done' && imageUrl) setIsImageLoaded(false);
         // Turn off comparison if the image is regenerated
-        if (status === 'pending') setIsComparing(false);
+        if (status === 'pending') {
+            startTransition(() => {
+                setIsComparing(false);
+            });
+        }
     }, [imageUrl, status]);
 
     useEffect(() => {
@@ -74,19 +82,52 @@ const PolaroidCard: React.FC<ResultCardProps> = ({ imageUrl, caption, status, er
         return () => { if (intervalId) clearInterval(intervalId); };
     }, [status]);
 
-    const handleDownload = () => {
-        if (!imageUrl) return;
-        const link = document.createElement('a');
-        link.href = imageUrl;
-        link.download = `barber-booth-pro-${angle}.jpg`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+    const handleDownload = async () => {
+        if (!imageUrl || isUpscaling) return;
+        setIsUpscaling(true);
+        let scale = 2; // default
+        const toastId = toast.loading('Preparing download...');
+        try {
+            const { instance: upscaler, scale: modelScale } = await getUpscaler();
+            scale = modelScale;
+            toast.loading(`Upscaling image (${scale}x)... (0%)`, { id: toastId });
+            
+            const upscaledDataUrl = await upscaler.upscale(imageUrl, {
+                output: 'base64',
+                patchSize: 64,
+                padding: 2,
+                progress: (progress) => {
+                    toast.loading(`Upscaling... ${Math.round(progress * 100)}%`, { id: toastId });
+                }
+            });
+            toast.success('Upscaling complete!', { id: toastId });
+            
+            const link = document.createElement('a');
+            link.href = upscaledDataUrl;
+            link.download = `barber-booth-pro-${angle}-upscaled.jpg`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (error) {
+            toast.error(`Upscaling failed (${scale}x). Downloading original.`, { id: toastId });
+            console.error("Upscaling failed:", error);
+            // Fallback to downloading original image
+            const link = document.createElement('a');
+            link.href = imageUrl;
+            link.download = `barber-booth-pro-${angle}.jpg`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } finally {
+            setIsUpscaling(false);
+        }
     };
     
     const handleCompare = () => {
-        if(uploadedImage && imageUrl) {
-            setIsComparing(prev => !prev);
+        if(comparisonSourceImage && imageUrl) {
+            startTransition(() => {
+                setIsComparing(prev => !prev);
+            });
         }
     };
     
@@ -107,24 +148,27 @@ const PolaroidCard: React.FC<ResultCardProps> = ({ imageUrl, caption, status, er
                 {status === 'error' && <ErrorDisplay message={error} />}
 
                 {status === 'done' && imageUrl && (
+                    // FIX: Wrapped motion props in a spread object to resolve type error.
                     <motion.img
                         key={imageUrl}
                         src={imageUrl}
                         alt={caption}
                         onLoad={() => setIsImageLoaded(true)}
-                        initial={{ opacity: 0.5, filter: 'saturate(0)' }}
-                        animate={{ opacity: isImageLoaded ? 1 : 0.5, filter: isImageLoaded ? 'saturate(1)' : 'saturate(0)' }}
-                        transition={{ duration: 1.5, ease: 'easeOut' }}
+                        {...{
+                        initial: { opacity: 0.5, filter: 'saturate(0)' },
+                        animate: { opacity: isImageLoaded ? 1 : 0.5, filter: isImageLoaded ? 'saturate(1)' : 'saturate(0)' },
+                        transition: { duration: 1.5, ease: 'easeOut' }
+                    }}
                         className="w-full h-full object-cover"
                     />
                 )}
                 
                 <AnimatePresence>
-                    {isComparing && uploadedImage && imageUrl && (
+                    {isComparing && comparisonSourceImage && imageUrl && (
                         <ComparisonSlider 
-                            beforeImage={uploadedImage} 
+                            beforeImage={comparisonSourceImage} 
                             afterImage={imageUrl}
-                            onClose={() => setIsComparing(false)}
+                            onClose={() => startTransition(() => setIsComparing(false))}
                         />
                     )}
                 </AnimatePresence>
@@ -133,7 +177,7 @@ const PolaroidCard: React.FC<ResultCardProps> = ({ imageUrl, caption, status, er
                     <div className="absolute top-2 right-2 z-20 flex flex-col gap-2 transition-opacity duration-300 opacity-0 group-hover:opacity-100">
                         <Button onClick={() => onRegenerate()} size="icon" variant="secondary" title="Regenerate"><Repeat className="w-4 h-4"/></Button>
                         {status === 'done' && <Button onClick={handleShare} size="icon" variant="secondary" title="Share"><Share2 className="w-4 h-4"/></Button>}
-                        {status === 'done' && <Button onClick={handleDownload} size="icon" variant="secondary" title="Download"><Download className="w-4 h-4"/></Button>}
+                        {status === 'done' && <Button onClick={handleDownload} size="icon" variant="secondary" title="Download" disabled={isUpscaling}><Download className="w-4 h-4"/></Button>}
                         {status === 'done' && angle === 'front' && <Button onClick={handleCompare} size="icon" variant={isComparing ? 'primary' : 'secondary'} title={isComparing ? 'Close Comparison' : 'Compare'}><GitCompareArrows className="w-4 h-4"/></Button>}
                     </div>
                 )}

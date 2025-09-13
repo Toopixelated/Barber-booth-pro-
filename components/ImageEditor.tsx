@@ -79,8 +79,10 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, onSave, onCancel, t
     const isSaveDisabled = !completedCrop || completedCrop.width === 0 || completedCrop.height === 0;
 
     return (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" aria-modal="true" role="dialog">
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="bg-neutral-900 rounded-lg shadow-xl w-full max-w-lg border border-neutral-700 flex flex-col max-h-[90vh]">
+        // FIX: Wrapped motion props in a spread object to resolve type error.
+        <motion.div {...{ initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } }} className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" aria-modal="true" role="dialog">
+            {/* FIX: Wrapped motion props in a spread object to resolve type error. */}
+            <motion.div {...{ initial: { scale: 0.9, y: 20 }, animate: { scale: 1, y: 0 }, exit: { scale: 0.9, y: 20 } }} className="bg-neutral-900 rounded-lg shadow-xl w-full max-w-lg border border-neutral-700 flex flex-col max-h-[90vh]">
                 <h2 className="text-2xl font-semibold text-center p-6 pb-4 text-white flex-shrink-0">{title}</h2>
                 <div className="flex-grow overflow-y-auto px-6 space-y-6">
                     <div className="flex justify-center items-center bg-black/50 p-4 rounded-md">

@@ -1,131 +1,169 @@
-# Barber Booth Pro: UI/UX Design Specification
+# Technical Specification: Barber Booth Pro
 
-This document provides a detailed breakdown of the user interface (UI), user experience (UX), and overall aesthetic of the Barber Booth Pro application. It is intended for developers, designers, and AI assistants to understand the application's visual and interactive design.
-
----
-
-## 1. Overall Aesthetic & Theme
-
-The application's design language is modern, premium, and slightly futuristic, evoking the feel of a high-end, tech-savvy salon.
-
--   **Color Palette:**
-    -   **Primary Background:** A very dark, near-black neutral (`#0c0a09`, neutral-950).
-    -   **UI Elements:** Dark grays and charcoals for cards and panels (`#18181b` to `#27272a`, neutral-900 to neutral-800).
-    -   **Primary Accent:** A vibrant gradient from hot pink (`#ec4899`) to electric purple (`#8b5cf6`), used for primary call-to-action buttons, focus rings, and decorative elements.
-    -   **Secondary Accent:** A strong indigo (`#4f46e5`), used for active tabs and toggles.
-    -   **Text:** Off-white (`#e2e8f0`, neutral-200) for primary text and light gray (`#a1a1aa`, neutral-400) for secondary text.
-    -   **Feedback Colors:** Green for success, red for errors/destructive actions, yellow for favorites.
-
--   **Typography:**
-    -   **Branding:** The main title "Barber Booth Pro" uses `Inter` with a bold weight and a gradient color for a clean, modern look.
-    -   **Body & UI Text:** `Inter` - A clean, highly readable sans-serif font used for all text, ensuring clarity and a modern feel.
-
--   **Atmosphere:** The main background features two large, subtle, blurred radial gradients (one indigo, one pink) that add depth and a "mood lighting" effect. The entire UI employs a dark mode theme, which is easy on the eyes and makes the vibrant accent colors pop.
+**Document ID**: BBP-SPEC-V2.0
+**Author**: Sonoma AI Assistant
+**Status**: Implemented (Post-Fix)
+**Related Docs**: `readme.txt`, `workspace_context.txt`
 
 ---
 
-## 2. Layout & Structure
+## 1. Overview & Core Mission
 
-The application is a responsive, single-page application (SPA) with a clear, consistent structure.
+Barber Booth Pro is a client-only Progressive Web App (PWA) designed to provide users with a photorealistic, multi-angle preview of a new hairstyle using generative AI. The application prioritizes a seamless, mobile-first user experience, high-quality visual output, and robust error handling within the constraints of a browser-based environment.
 
--   **Main Layout:** A single-column, centered layout that focuses the user's attention.
--   **Header:** A fixed header at the top with a semi-transparent, blurred background.
-    -   **Logo:** The logo is a graphical element designed to be professional and dynamic. It consists of a rounded square container with a subtle background gradient using the app's signature pink and purple accent colors. Inside, the barber pole and scissors emojis are artistically overlapped, scaled, and rotated to create a sense of depth.
--   **Footer:** A fixed footer at the bottom with a semi-transparent, blurred background.
--   **Side Panels & Modals:** Secondary features like History and menus appear as overlays (modals) or slide-in panels, dimming and blurring the main content to maintain focus.
--   **Responsiveness:** The layout adapts fluidly to different screen sizes. The 4-up results grid collapses from 4 columns to 2, then to 1 on smaller screens.
+### 1.1. Core Principles (Constitution)
+- **PWA-First**: The application must be installable, function offline where possible (core shell), and feel native.
+- **Simplicity**: Maintain a single, client-side codebase. Prefer stable, built-in solutions over complex, external dependencies (e.g., default upscaler model as a fallback).
+- **Test-First Mindset**: Features are designed with testability in mind, covering primary user stories, edge cases (e.g., network failure, hardware limitations), and performance.
+- **Observability**: Provide clear, real-time feedback to the user for all asynchronous operations (e.g., progress toasts, loading states, descriptive errors).
 
----
-
-## 3. Core Component Design
-
-### 3.1. Main Application Flow (controlled by `appState` in Zustand store)
-
-**a) `idle` State (Initial View):**
--   The user is greeted by a single, large, square `Card` component.
--   **Appearance:** It has a subtle glowing gradient border. Inside, a large `Camera` icon and "Upload Your Photo" prompt the user to action.
--   **Interaction:** Clicking the card opens the "Choose Source" modal.
-
-**b) `image-uploaded` State (Input View):**
--   The view is dominated by a central card for hairstyle input, with the user's photo displayed above it.
--   **Uploaded Image Preview:** The user's photo is in a circular frame. On hover, a "Replace" button appears.
--   **Input Card:**
-    -   **Tabs:** A two-tab interface ("Text Prompt" / "Reference Image"). The active tab is highlighted in indigo.
-    -   **Text Prompt:** A `textarea` with a pink focus ring. An animated suggestion list appears below as the user types, showing both random ideas and AI-generated suggestions.
-    -   **Reference Image:** A dashed-border "drop zone." When an image is added, it's displayed with "Change" and "Remove" buttons on hover. Textareas below allow for further description. A "High-Fidelity Mode" toggle is available.
-    -   **Color Picker:** A button that shows the selected hair color. Clicking it reveals a pop-over panel with a `HexColorPicker`, preset color swatches, and a "Clear Color" button.
--   **Action Buttons:** "Start Over" (ghost style) and "Generate Pro" (primary gradient style).
-
-**c) `generating-results` State (Results View):**
--   The UI transitions to a grid of four `PolaroidCard` components.
--   **Polaroid Card (`PolaroidCard.tsx`):**
-    -   **Structure:** Designed like a classic polaroid, with an image area and a bottom border for a caption (e.g., 'Front', 'Left Side').
-    -   **States:**
-        1.  **Pending:** The image area has a loading spinner and cycling text messages ("Briefing the AI stylist...").
-        2.  **Done:** The image fades in. On hover, icon buttons (Regenerate, Share, Download, Compare) appear. The card's border turns green.
-        3.  **Error:** An `AlertTriangle` icon and error message appear. The card's border turns red.
-    -   **Interaction:** The front-facing card's "Compare" button overlays a `ComparisonSlider`.
--   **Comparison Slider (`ComparisonSlider.tsx`):** An interactive overlay with a draggable handle that reveals the "before" and "after" images.
--   **Post-Generation Actions:** Below the grid, buttons for "New Style", "Download 4-Up", "Share 4-Up", and "Create 360° Video" appear.
-
-**d) Image Processing Loader:**
--   **Trigger:** Appears immediately after a user selects a file.
--   **Appearance:** A full-screen overlay with a dark, blurred background. A `LoadingSpinner` with "Processing image..." is displayed.
--   **Behavior:** This provides immediate feedback, bridging the gap between file selection and the `ImageEditor`.
-
-### 3.2. Overlays and Modals
-
--   **General Behavior:** All modals use `framer-motion` for smooth animations and are accompanied by a dark, blurred backdrop.
-
--   **Choose Source Modal:**
-    -   **Animation:** The modal content animates in with a gentle slide-up and fade-in effect.
-    -   **Appearance:** A centered dialog with two large, card-like buttons:
-        -   **"From File":** Features a `FileImage` icon and descriptive text.
-        -   **"Take Photo":** Features a `Camera` icon and descriptive text.
-    -   **Interaction:** Hovering provides a visual lift effect and a pink border.
-
--   **Camera Capture (`CameraCapture.tsx`):** A full-screen overlay displaying the camera feed with a large, circular shutter button.
-
--   **Image Editor (`ImageEditor.tsx`):** A modal with the `ReactCrop` interface and a rotation slider.
-
--   **History Panel (`HistoryPanel.tsx`):** A panel that slides in from the right. It includes a filter for "All" vs. "Favorites." History items are cards with a preview image, prompt info, a "Restore" button, and a star icon for favoriting.
-
--   **Share Menu (`ShareMenu.tsx`):** A dialog that previews the content and provides social media links and utility buttons ("Copy Image," "Download").
-
-### 3.3. Micro-interactions & Animations
-
--   **State Transitions:** The transition between main application states is animated with a fade and vertical slide.
--   **Hover Effects:** Buttons scale slightly. Cards lift. Icons change color. These details make the UI feel responsive.
--   **Loading States:** Animated spinners and pulsing text provide clear feedback during all asynchronous operations.
+### 1.2. Technology Stack
+- **Language**: TypeScript / React 19
+- **State Management**: Zustand v4.5.5
+- **AI Services**:
+    - **Google Gemini API**: `@google/genai` v1.14.0
+    - **Image Generation Model**: `gemini-2.5-flash-image-preview`
+    - **Video Generation Model**: `veo-2.0-generate-001`
+    - **Text Suggestion Model**: `gemini-2.5-flash`
+- **Image Upscaling**:
+    - **Library**: `upscaler` v1.0.0-beta.19
+    - **Backend**: `@tensorflow/tfjs` v4.20.0 (WebGL with CPU fallback)
+    - **Dynamic Model**: `@upscalerjs/esrgan-slim` v1.0.0-beta.12 (4x scale)
+- **Styling & UI**: Tailwind CSS, Framer Motion, Radix UI, React Colorful, `react-image-crop`
+- **Environment**: Sandboxed IDE with `importmap`, Client-only.
 
 ---
 
-## 4. Prompt Engineering Summary
+## 2. Feature Specifications
 
-The application's success relies on carefully crafted prompts for different AI models and tasks.
+### 2.1. Feature: PWA & Core App Shell
+- **Execution Flow**:
+    1. `index.html` loads the application and registers the service worker via a script tag pointing to `./service-worker.js`.
+    2. The `service-worker.js` script caches core assets (`/`, `./index.html`, `./index.css`, `./index.tsx`) upon installation.
+    3. In `App.tsx`, a `useEffect` hook listens for the `beforeinstallprompt` event, storing it in the Zustand store to be used by the `Footer.tsx` component.
+- **User Scenarios & Testing**:
+    - **Given** a user visits for the first time on a supported browser, **When** the app loads, **Then** the "Home Screen" button in the footer is enabled.
+    - **Given** the PWA is installed and the user is offline, **When** the app is launched, **Then** the core UI shell successfully loads from the cache.
+- **Requirements**:
+    - **FR-PWA-01**: The application MUST be installable via the `./manifest.json` file, with all paths specified relatively to support the sandboxed environment.
+    - **FR-PWA-02**: The service worker MUST cache the core application shell for basic offline functionality.
+    - **NFR-PWA-01**: Initial application load time MUST be under 3 seconds on a standard 4G connection.
 
-### 4.1. Image Generation (`generateFourUpImage`)
+### 2.2. Feature: Image Input & Editing
+- **Execution Flow**:
+    1. User initiates an upload, triggering the `isUploadOptionsOpen` modal in `App.tsx`.
+    2. User selects "From File" (triggering a hidden `<input>`) or "Take Photo" (mounting `CameraCapture.tsx`).
+    3. The captured image data URL is passed to the `ImageEditor.tsx` modal.
+    4. User crops the image using `react-image-crop` (enforced 1:1 aspect ratio) and can apply rotation from -45° to +45°.
+    5. On save, the cropped JPEG data URL is saved to the Zustand store via `setUploadedImage`.
+- **User Scenarios & Testing**:
+    - **Given** a user selects a rectangular photo, **When** the editor opens, **Then** a 1:1 crop overlay is centered on the image.
+    - **Given** a user on a mobile device has multiple cameras, **When** in `CameraCapture`, **Then** the "Switch Camera" button cycles through available video devices.
+- **Requirements**:
+    - **FR-IMG-01**: The application MUST accept `image/png`, `image/jpeg`, and `image/webp` file types.
+    - **FR-IMG-02**: The image editor MUST enforce a 1:1 aspect ratio for all user photos.
+    - **FR-IMG-03**: Camera access permissions MUST be handled gracefully, displaying a user-friendly error message if denied.
 
-*   **Model:** `gemini-2.5-flash-image-preview`
-*   **Strategy:** Generate a single 2x2 grid to ensure consistency.
-*   **Key Features:**
-    *   **Task Framing:** Prompt is framed as an "Edit" task.
-    *   **Structure:** Uses clear headers (`Task:`, `Grid Composition:`, `Critical Rules:`) for better parsing by the AI.
-    *   **Camera-Centric Directions:** Explicitly tells the AI which way the subject's nose should point from the camera's perspective for side profiles, eliminating ambiguity.
-    *   **Negative Instructions:** A "No Extras" rule prevents common artifacts like borders or text.
+### 2.3. Feature: AI Hairstyle Generation (4-Up Grid)
+- **Execution Flow**:
+    1. User provides input and clicks "Generate Pro", triggering `runGenerationSequence` in `App.tsx`.
+    2. The app state is set to `generating-results`, and `generateFourUpImage` in `geminiService.ts` is called.
+    3. The service resizes input images to a max of 1024px, constructs a detailed prompt specifying a 2x2 grid output, and calls the Gemini API.
+    4. The API call is wrapped in `callGeminiWithRetry`, which attempts up to 3 retries with exponential backoff on internal server errors.
+    5. The returned 2x2 grid image URL is processed by `cropFourUpSheet` in `lib/albumUtils.ts`, which slices it into four quadrant images.
+    6. The four new image URLs are saved to the Zustand store, and `saveToHistory` is called.
+- **User Scenarios & Testing**:
+    - **Given** a user provides only a hex color (e.g., `#be185d`), **When** generation runs, **Then** the prompt is framed to only change the hair color, preserving the original style.
+    - **Given** the Gemini API returns a 500 error, **When** generating, **Then** the service retries automatically before displaying an error to the user.
+- **Requirements**:
+    - **FR-GEN-01**: The system MUST make a single API call to `gemini-2.5-flash-image-preview` to generate all four views for efficiency.
+    - **FR-GEN-02**: The prompt engineering MUST include the "Identity Preservation" critical rule to maintain the user's likeness.
+    - **FR-GEN-03**: The service layer MUST implement a retry mechanism for transient server-side API errors.
+    - **NFR-GEN-01**: The entire image generation and cropping process should complete in under 30 seconds.
 
-### 4.2. Video Generation (`generateHairstyleVideo`)
+### 2.4. Feature: High-Resolution Upscaling & Download
+- **Execution Flow**:
+    1. User clicks a "Download" button, triggering a handler like `handleDownload` in `PolaroidCard.tsx`.
+    2. The handler calls `getUpscaler` from `lib/upscaler.ts`, which manages a singleton `Upscaler.js` instance.
+    3. `getUpscaler` initializes the TensorFlow.js backend (preferring WebGL, with a CPU fallback) and dynamically imports the 4x ESRGAN-Slim model. If the model fails to load, it falls back to the default built-in 2x model.
+    4. The handler calls `upscaler.upscale()` with options `{ output: 'base64', patchSize: 64, padding: 2, progress: ... }`.
+    5. The `progress` callback updates a `react-hot-toast` notification in real-time.
+    6. On completion, the upscaled base64 URL is used to create and click a download link. If upscaling fails, the original image is downloaded instead.
+- **User Scenarios & Testing**:
+    - **Given** a 1024x1024 image, **When** a user clicks "Download", **Then** a 4096x4096 (with 4x model) or 2048x2048 (with 2x fallback model) image is downloaded with a progress toast.
+    - **Given** a user downloads the 4-up sheet (e.g., 2048x2048px), **When** upscaling starts, **Then** the process completes without a WebGL texture limit error due to patch processing.
+- **Requirements**:
+    - **FR-UP-01**: The application MUST upscale images using `patchSize` to prevent browser errors and enable progress tracking.
+    - **FR-UP-02**: The system MUST provide real-time progress feedback to the user via a toast notification.
+    - **FR-UP-03**: The system MUST gracefully fall back to downloading the original image if the upscaling process fails.
+    - **NFR-UP-01**: Upscaling of a single 1024x1024 image should complete in under 15 seconds on a mid-range device with WebGL.
 
-*   **Model:** `veo-2.0-generate-001`
-*   **Strategy:** Create a short, cost-effective "turntable" video.
-*   **Key Features:**
-    *   **Cost Optimization:** Prompt explicitly requests a short duration (3-4 seconds) and 720p resolution.
-    *   **Direct Command:** Uses a concise, direct prompt without personas.
-    *   **Framing Rules:** Enforces a square (1:1) aspect ratio and a "head and shoulders" portrait framing to match the still images.
+### 2.5. Feature: 360° Video Generation
+- **Execution Flow**:
+    1. User clicks "Create 360° Video", triggering `handleGenerateVideoClick` in `App.tsx`.
+    2. The `generateHairstyleVideo` service in `geminiService.ts` is called with the generated "front" view image.
+    3. The service initiates the generation with `veo-2.0-generate-001` and enters a `while` loop, polling the operation status every 10 seconds.
+    4. A series of descriptive progress messages are passed back to the UI via an `onProgress` callback.
+    5. When the operation is `done`, the final video file is fetched, converted to a blob URL, and saved in the Zustand store.
+- **User Scenarios & Testing**:
+    - **Given** all four images are generated, **When** a user clicks "Create 360° Video", **Then** the `VideoPreview` component appears and cycles through progress messages.
+    - **Given** the video generation fails at the API level, **When** the operation completes, **Then** the `VideoPreview` component displays a specific error message from the API.
+- **Requirements**:
+    - **FR-VID-01**: Video generation MUST use the AI-generated "front" view image as its primary visual input.
+    - **FR-VID-02**: The UI MUST display a sequence of progress messages to the user during the entire generation process.
+    - **NFR-VID-01**: The UI must clearly communicate that video generation is a lengthy process (several minutes) to manage user expectations.
 
-### 4.3. Hairstyle Suggestions (`getHairstyleSuggestions`)
+### 2.6. Feature: History Management
+- **Execution Flow**:
+    1. Upon successful generation, `saveToHistory` in `App.tsx` is called.
+    2. All input and generated images are compressed to a maximum dimension of 512px using `compressImageForStorage`.
+    3. A new `HistoryItem` object is created and prepended to the `generationHistory` array in the Zustand store, which persists to `localStorage`.
+    4. The user can open the `HistoryPanel`, view past generations, and restore a session by clicking "Restore", which re-populates the entire application state.
+- **User Scenarios & Testing**:
+    - **Given** a user completes a generation, **When** they reload the app, **Then** their previous session is visible in the History Panel.
+    - **Given** a user clicks "Restore" on a history item, **When** the main view loads, **Then** it displays the restored images and inputs.
+- **Requirements**:
+    - **FR-HIST-01**: The generation history MUST be automatically saved upon successful completion of a 4-up grid or video.
+    - **FR-HIST-02**: Images stored in history MUST be compressed to manage `localStorage` quota.
+    - **FR-HIST-03**: The application MUST cap the history at 50 items to prevent storage overflow.
+    - **FR-HIST-04**: A one-time migration logic MUST run on app start to merge history from a plausible old `localStorage` key.
 
-*   **Model:** `gemini-2.5-flash`
-*   **Strategy:** Generate a structured list of creative ideas.
-*   **Key Features:**
-    *   **JSON Output:** Uses `responseMimeType: "application/json"` and a `responseSchema` to force the model to return a clean, parseable JSON array of strings, improving reliability.
+---
+
+## 3. Proposal (Spec Kit Style)
+### Problem
+Users struggle to visualize how a new hairstyle will look on them from all angles before committing to a change. Existing solutions are often unrealistic, limited to 2D, or lack personalization.
+
+### Goals
+- To provide a photorealistic, multi-angle AI preview of any described hairstyle on a user's own photo.
+- To create a fast, reliable, and mobile-first PWA that is installable and works well on a variety of devices.
+- To offer a high-quality user experience with features like high-resolution downloads, 360° video, and session history.
+
+### Non-Goals
+- To become a professional salon management tool.
+- To support server-side rendering or user accounts (the app is entirely client-side).
+- To offer real-time hair tracking via a live camera feed.
+
+---
+
+## 4. Risks & Mitigations
+- **Risk**: API changes or model deprecation by Google.
+  - **Mitigation**: All API logic is isolated in `services/geminiService.ts`, creating a single point of adaptation.
+- **Risk**: Hitting `localStorage` quota limits due to history.
+  - **Mitigation**: History is capped at 50 items, all images are aggressively compressed, and a "Clear History" option is provided.
+- **Risk**: Performance issues on low-end devices with WebGL/TensorFlow.js.
+  - **Mitigation**: The upscaler explicitly manages the TF.js backend (WebGL with CPU fallback) and uses patch processing to reduce memory pressure.
+- **Risk**: CDN instability for dependencies like the upscaler model.
+  - **Mitigation**: The `lib/upscaler.ts` utility includes a try/catch block to fall back to a stable, built-in model if the dynamically imported model fails.
+
+---
+
+## 5. Progress Tracking & Next Steps
+- [x] PWA shell and installability implemented.
+- [x] Core image upload, editing, and AI generation flow complete.
+- [x] Robust, multi-layered upscaling with fallbacks and patch processing is stable.
+- [x] Video generation with polling is functional.
+- [x] Local storage history with compression and restoration is implemented.
+- [ ] **Next**: Implement end-to-end tests (e.g., using Cypress or Playwright) for critical user flows.
+- [ ] **Next**: Investigate caching upscaler model files in the service worker for improved offline performance.
+- [ ] **Future**: Explore advanced editing tools (in-painting/out-painting) for hairstyle modifications.

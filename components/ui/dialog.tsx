@@ -22,18 +22,20 @@ export const Dialog: React.FC<DialogProps> = ({ isOpen, onClose, children, title
   return (
     <AnimatePresence>
       {isOpen && (
+        // FIX: Wrapped motion props in a spread object to resolve type error.
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+          {...{ initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } }}
           className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
           onClick={onClose}
         >
+          {/* FIX: Wrapped motion props in a spread object to resolve type error. */}
           <motion.div
-            initial={{ scale: 0.95, y: 20 }}
-            animate={{ scale: 1, y: 0 }}
-            exit={{ scale: 0.95, y: 20 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            {...{
+            initial: { scale: 0.95, y: 20 },
+            animate: { scale: 1, y: 0 },
+            exit: { scale: 0.95, y: 20 },
+            transition: { type: 'spring', stiffness: 300, damping: 30 }
+          }}
             onClick={(e) => e.stopPropagation()}
             onAnimationComplete={onAnimationComplete}
             className={className}

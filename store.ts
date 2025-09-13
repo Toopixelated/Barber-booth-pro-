@@ -1,4 +1,3 @@
-
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -46,6 +45,7 @@ interface AppState {
     generatedImages: Record<string, GeneratedImage>;
     isGenerating: boolean;
     appState: 'idle' | 'image-uploaded' | 'generating-results';
+    comparisonSourceImage: string | null; // Holds the "before" image for the current generation
 
     // Video State
     videoStatus: VideoStatus;
@@ -60,6 +60,7 @@ interface AppState {
     isHistoryPanelOpen: boolean;
     isShareMenuOpen: boolean;
     shareContent: { url: string; type: 'image' | 'video'; title: string } | null;
+    installPromptEvent: any | null;
 }
 
 interface AppActions {
@@ -78,6 +79,7 @@ interface AppActions {
     startGeneration: () => void;
     setAngleStatus: (angle: Angle, status: ImageStatus, url?: string, error?: string) => void;
     finishGeneration: () => void;
+    setComparisonSourceImage: (image: string | null) => void;
 
     // Video Actions
     setVideoStatus: (status: VideoStatus) => void;
@@ -90,11 +92,13 @@ interface AppActions {
     clearHistory: () => void;
     toggleFavorite: (id: string) => void;
     restoreFromHistory: (item: HistoryItem) => void;
+    setHistory: (history: HistoryItem[]) => void;
 
     // UI Actions
     setHistoryPanelOpen: (isOpen: boolean) => void;
     openShareMenu: (content: { url: string; type: 'image' | 'video'; title: string }) => void;
     closeShareMenu: () => void;
+    setInstallPromptEvent: (event: any | null) => void;
 }
 
 export const useStore = create<AppState & AppActions>()(
@@ -112,6 +116,7 @@ export const useStore = create<AppState & AppActions>()(
             generatedImages: {},
             isGenerating: false,
             appState: 'idle',
+            comparisonSourceImage: null,
             videoStatus: 'idle',
             videoUrl: null,
             videoProgress: '',
@@ -120,6 +125,7 @@ export const useStore = create<AppState & AppActions>()(
             isHistoryPanelOpen: false,
             isShareMenuOpen: false,
             shareContent: null,
+            installPromptEvent: null,
             
             // Actions
             setUploadedImage: (image) => {
@@ -127,6 +133,7 @@ export const useStore = create<AppState & AppActions>()(
                 set({ 
                     uploadedImage: image, 
                     appState: image ? 'image-uploaded' : 'idle',
+                    comparisonSourceImage: image, // Also set the source for potential immediate use
                 });
             },
             setHairstyleDescription: (desc) => set({ hairstyleDescription: desc }),
@@ -169,6 +176,7 @@ export const useStore = create<AppState & AppActions>()(
                 }));
             },
             finishGeneration: () => set({ isGenerating: false }),
+            setComparisonSourceImage: (image) => set({ comparisonSourceImage: image }),
 
             setVideoStatus: (status) => set({ videoStatus: status }),
             setVideoUrl: (url) => set({ videoUrl: url }),
@@ -189,11 +197,14 @@ export const useStore = create<AppState & AppActions>()(
                 videoStatus: item.generatedVideoUrl ? 'done' : 'idle',
                 videoUrl: item.generatedVideoUrl || null,
                 inputMode: item.hairstyleReferenceImage ? 'image' : 'text',
+                comparisonSourceImage: item.uploadedImage, // Ensure comparison source is restored
             }),
+            setHistory: (history) => set({ generationHistory: history }),
             
             setHistoryPanelOpen: (isOpen) => set({ isHistoryPanelOpen: isOpen }),
             openShareMenu: (content) => set({ isShareMenuOpen: true, shareContent: content }),
             closeShareMenu: () => set({ isShareMenuOpen: false }),
+            setInstallPromptEvent: (event) => set({ installPromptEvent: event }),
         }),
         {
             name: 'barber-booth-pro-storage',
