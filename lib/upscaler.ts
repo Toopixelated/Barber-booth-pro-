@@ -31,10 +31,13 @@ export const getUpscaler = async (): Promise<{ instance: InstanceType<typeof Ups
     }
 
     try {
-        // Dynamically import the ESRGAN-Slim model. This is more robust in an importmap environment.
-        const model = (await import('https://cdn.jsdelivr.net/npm/@upscalerjs/esrgan-slim@1.0.0-beta.12/4x/+esm')).default;
+        // Define the model configuration directly, pointing to the correct model.json URL.
+        const model = {
+            path: 'https://cdn.jsdelivr.net/npm/@upscalerjs/esrgan-slim@1.0.0-beta.12/models/x4/model.json',
+            scale: 4,
+        };
         modelScale = 4; // This model is 4x
-        
+
         // Create a new Upscaler instance with the loaded model and TF.js backend
         upscalerInstance = new Upscaler({ model });
         console.log(`Upscaler.js initialized with ${modelScale}x ESRGAN-Slim model.`);
