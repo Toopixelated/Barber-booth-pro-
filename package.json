@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview --outDir build_output",
+    "test:e2e": "npm run build && DEBUG=pw:api npx playwright test"
   },
   "dependencies": {
     "@google/genai": "^1.14.0",
@@ -27,6 +28,7 @@
   },
   "devDependencies": {
     "@jest/globals": "^30.1.2",
+    "@playwright/test": "^1.55.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.14.0",
     "jest": "^30.1.3",
@@ -34,5 +36,22 @@
     "ts-jest": "^29.4.1",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
-  }
+  },
+  "description": "<div align=\"center\"> <img width=\"1200\" height=\"475\" alt=\"GHBanner\" src=\"https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6\" /> </div>",
+  "main": "service-worker.js",
+  "directories": {
+    "lib": "lib",
+    "test": "tests"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Toopixelated/Barber-booth-pro-.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Toopixelated/Barber-booth-pro-/issues"
+  },
+  "homepage": "https://github.com/Toopixelated/Barber-booth-pro-#readme"
 }

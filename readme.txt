@@ -153,4 +153,25 @@ Modify the prompts in `services/geminiService.ts`.
 
 ### Updating Dependencies
 
-The project uses an `importmap` in `index.html`. To update a package, change the version number in the import map URL.
+The project now uses a standard `package.json` for dependency management. To add or update a package, modify the `dependencies` or `devDependencies` sections and run `npm install`. The original `importmap` has been removed from `index.html`.
+
+---
+
+## 6. Development & Testing Notes
+
+This project was originally developed in a browser-based, sandboxed IDE that used an `importmap` for dependencies. To enable modern tooling like end-to-end testing, the project has been migrated to a standard `npm`-based environment.
+
+### Running the Application
+
+-   **Development Server**: `npm run dev` (uses Vite)
+-   **Production Build**: `npm run build`
+-   **Preview Production Build**: `npm run preview`
+
+### End-to-End Testing
+
+An attempt was made to add end-to-end tests using **Playwright**. The setup involved creating a `playwright.config.ts`, installing all necessary dependencies, and writing initial test files.
+
+**However, E2E testing is currently BLOCKED by the development environment.**
+
+-   **Issue**: All attempts to run a local server (`vite dev`, `vite preview`, and even a standard Python `http.server`) result in the process hanging and eventually timing out. The Playwright test runner also times out, likely because it cannot launch a browser process successfully within the sandbox.
+-   **Conclusion**: The sandboxed environment has fundamental constraints that prevent server processes and/or browser instantiation, making E2E testing impossible at this time. The full test setup has been left in the codebase (`playwright.config.ts`, `e2e/` directory) in case the environment changes or the project is moved to a less restrictive one.

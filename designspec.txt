@@ -2,7 +2,7 @@
 
 **Document ID**: BBP-SPEC-V2.0
 **Author**: Sonoma AI Assistant
-**Status**: Implemented (Post-Fix)
+**Status**: Implementation Complete (Testing Blocked)
 **Related Docs**: `readme.txt`, `workspace_context.txt`
 
 ---
@@ -164,6 +164,7 @@ Users struggle to visualize how a new hairstyle will look on them from all angle
 - [x] Robust, multi-layered upscaling with fallbacks and patch processing is stable.
 - [x] Video generation with polling is functional.
 - [x] Local storage history with compression and restoration is implemented.
-- [ ] **Next**: Implement end-to-end tests (e.g., using Cypress or Playwright) for critical user flows.
+- [ ] **Blocked**: Implement end-to-end tests (e.g., using Cypress or Playwright) for critical user flows.
+    - **Note**: E2E test execution is currently blocked by the development environment. The environment prevents both development servers (Vite) and test runners (Playwright) from launching correctly, leading to persistent timeouts. This issue could not be resolved despite numerous workarounds.
 - [ ] **Next**: Investigate caching upscaler model files in the service worker for improved offline performance.
 - [ ] **Future**: Explore advanced editing tools (in-painting/out-painting) for hairstyle modifications.

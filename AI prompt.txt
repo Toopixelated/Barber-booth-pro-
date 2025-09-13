@@ -1,0 +1,68 @@
+# AI Agent Onboarding Prompt: Barber Booth Pro
+
+## 1. High-Level Overview
+
+You are working on **Barber Booth Pro**, a sophisticated, client-only Progressive Web App (PWA). Its core mission is to provide users with a photorealistic, multi-angle preview of a new hairstyle using generative AI (Google's Gemini models). The application is built with React and TypeScript and prioritizes a seamless, mobile-first user experience.
+
+The full technical specification can be found in `designspec.txt`.
+
+## 2. Core Features
+
+- **PWA Functionality:** The app is installable and has a service worker for basic offline access to the UI shell.
+- **Image Upload & Editing:** Users can upload a photo from their device or take a new one with their camera. An editor allows for 1:1 cropping and rotation.
+- **AI Hairstyle Generation:** The app uses the Gemini API to generate a 4-up grid of images (front, left, right, back) showing a new hairstyle based on user input (text, reference image, or color).
+- **High-Resolution Downloads:** It uses `Upscaler.js` with TensorFlow.js to upscale generated images for high-quality downloads. This system is robust, featuring patch processing to handle large images and fallbacks for both the AI model and the TF.js backend (WebGL/CPU).
+- **360° Video Generation:** It can generate a short "turntable" video of the final hairstyle using the Veo model.
+- **Generation History:** User sessions are saved to `localStorage`, allowing users to view and restore previous generations.
+
+## 3. Technology Stack
+
+- **Framework:** React 19 / TypeScript
+- **Build Tool:** Vite
+- **Dependency Management:** `package.json` with `npm`
+- **State Management:** Zustand (with `persist` middleware for `localStorage`)
+- **Styling:** Tailwind CSS
+- **UI Components:** Radix UI (for primitives like Dialogs), Framer Motion (for animations), React Colorful (for color picker).
+- **AI Services:** `@google/genai` library.
+    - Image Generation: `gemini-2.5-flash-image-preview`
+    - Video Generation: `veo-2.0-generate-001`
+    - Text Suggestions: `gemini-2.5-flash`
+- **Image Upscaling:** `upscaler` library with `@tensorflow/tfjs`.
+
+## 4. Project Structure & Key Files
+
+The project is structured as a standard single-page React application.
+
+-   `src/`: This directory is not explicitly present, as the project follows a flatter structure. Key files are in the root.
+-   `index.html`: The main entry point. It loads the React application.
+-   `index.tsx`: The root of the React application, where the `App` component is rendered.
+-   `App.tsx`: The main application component. It orchestrates all UI, state, and business logic. Most user interactions and data flows are managed here.
+-   `components/`: Contains all the reusable React components that make up the UI.
+-   `lib/`: Contains utility functions for specific tasks.
+    -   `albumUtils.ts`: Image manipulation functions (cropping the 4-up grid, compressing images for history).
+    -   `upscaler.ts`: Manages the singleton instance of Upscaler.js. **This is a critical file for the upscaling feature.**
+    -   `shareUtils.ts`: Web Share API helpers.
+-   `services/`: Contains all logic for communicating with external APIs.
+    -   `geminiService.ts`: **The heart of the AI functionality.** This file contains all prompt engineering, API calls to Gemini for image/video/text generation, and the retry/polling logic.
+-   `store.ts`: Defines the global application state using Zustand. All state changes should be done through actions defined in this file.
+-   `designspec.txt`: The complete technical specification document. **Refer to this for any questions about features or requirements.**
+-   `readme.txt`: A developer-focused README with more details on the architecture.
+-   `workspace_context.txt`: **Important historical context.** Explains the original browser-based IDE environment and its limitations. It's less relevant now but good for understanding the project's history.
+
+## 5. How to Run the Application
+
+The project uses `npm` for dependency management and Vite for the build process.
+
+1.  **Install Dependencies**: `npm install`
+    -   **Note**: You may need to use the `--legacy-peer-deps` flag if you encounter peer dependency conflicts with `@tensorflow/tfjs`.
+2.  **Run the Development Server**: `npm run dev`
+3.  **Create a Production Build**: `npm run build`
+4.  **Preview the Production Build**: `npm run preview`
+
+## 6. Known Issues & Limitations
+
+**End-to-End Testing is BLOCKED.**
+
+-   **The Problem**: The development environment provided for this project has a fundamental constraint that prevents server processes (like `vite dev` or `vite preview`) from running correctly. It also appears to block the Playwright test runner from launching browser instances. All attempts to run servers or tests result in a timeout.
+-   **What was tried**: Numerous workarounds were attempted, including using different servers (Python) and testing local files directly, but none were successful.
+-   **Your Task**: Do not attempt to run the E2E tests (`npm run test:e2e`). The configuration files (`playwright.config.ts`, `e2e/` directory) have been left in the codebase for future use in a less restrictive environment. Focus on other development tasks.

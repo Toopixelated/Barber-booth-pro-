@@ -2,14 +2,18 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-const CACHE_NAME = 'barber-booth-pro-cache-v1';
+const CACHE_NAME = 'barber-booth-pro-cache-v2'; // Incremented version
 const urlsToCache = [
+  // Core app shell
   '/',
-  '/index.html',
-  '/index.css',
-  '/index.tsx',
-  // Note: assets from esm.sh and other CDNs are not cached.
-  // The browser will cache them based on their own HTTP headers.
+  './index.html',
+  './index.css',
+  './index.tsx', // This might not be cacheable directly if it needs processing
+
+  // Upscaler.js AI Model assets for offline performance
+  'https://cdn.jsdelivr.net/npm/@upscalerjs/esrgan-slim@1.0.0-beta.12/4x/+esm',
+  'https://cdn.jsdelivr.net/npm/@upscalerjs/esrgan-slim@1.0.0-beta.12/models/x4/model.json',
+  'https://cdn.jsdelivr.net/npm/@upscalerjs/esrgan-slim@1.0.0-beta.12/models/x4/group1-shard1of1.bin',
 ];
 
 self.addEventListener('install', event => {
