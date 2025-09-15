@@ -16,6 +16,8 @@ export const getUpscaler = async (): Promise<{ instance: InstanceType<typeof Ups
         return { instance: upscalerInstance, scale: modelScale };
     }
 
+    console.log("Warming up Upscaler instance...");
+
     try {
         // Explicitly set the backend to WebGL for GPU acceleration.
         await tf.setBackend('webgl');
@@ -47,5 +49,6 @@ export const getUpscaler = async (): Promise<{ instance: InstanceType<typeof Ups
         console.log('Upscaler.js initialized with default 2x model.');
     }
 
+    console.log("Upscaler instance is ready.");
     return { instance: upscalerInstance, scale: modelScale };
 };

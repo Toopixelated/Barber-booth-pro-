@@ -16,6 +16,39 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 }
 
 /**
+ * Resizes an image if its dimensions exceed a maximum value.
+ * Preserves aspect ratio and outputs a high-quality PNG data URL.
+ * @param dataUrl The source image data URL.
+ * @param maxDimension The maximum width or height for the output image.
+ * @returns A promise that resolves to a resized PNG data URL.
+ */
+export async function resizeImage(dataUrl: string, maxDimension: number): Promise<string> {
+    const img = await loadImage(dataUrl);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Could not get 2D context for resizing');
+
+    let { width, height } = img;
+
+    // Only resize if an image dimension is larger than the max
+    if (width > maxDimension || height > maxDimension) {
+        if (width > height) {
+            height = Math.round(height * (maxDimension / width));
+            width = maxDimension;
+        } else {
+            width = Math.round(width * (maxDimension / height));
+            height = maxDimension;
+        }
+    }
+
+    canvas.width = width;
+    canvas.height = height;
+    ctx.drawImage(img, 0, 0, width, height);
+
+    return canvas.toDataURL('image/png');
+}
+
+/**
  * Resizes an image from a data URL for API submission.
  * Resizes to a max dimension of 1024px and converts to JPEG.
  * @param dataUrl The source image data URL.

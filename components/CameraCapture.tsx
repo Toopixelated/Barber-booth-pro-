@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import { Button } from './ui/button';
 import LoadingSpinner from './LoadingSpinner';
 import { X, SwitchCamera } from 'lucide-react';
+import { playSound } from '../lib/audioUtils';
 
 interface CameraCaptureProps {
     onCapture: (imageDataUrl: string) => void;
@@ -115,6 +116,7 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onCancel }) =>
         const video = videoRef.current;
         const canvas = canvasRef.current;
         if (video && canvas && video.readyState === 4) {
+            playSound('capture');
             const ctx = canvas.getContext('2d');
             if (ctx) {
                 canvas.width = video.videoWidth;

@@ -2,14 +2,22 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-const CACHE_NAME = 'barber-booth-pro-cache-v1';
+// Increment cache version to trigger an update for all users
+const CACHE_NAME = 'barber-booth-pro-cache-v2';
+
+// Add core app shell and all necessary upscaler assets to the cache list
 const urlsToCache = [
   '/',
   '/index.html',
   '/index.css',
   '/index.tsx',
-  // Note: assets from esm.sh and other CDNs are not cached.
-  // The browser will cache them based on their own HTTP headers.
+  // Upscaler.js and its core dependency TensorFlow.js for offline functionality
+  'https://cdn.jsdelivr.net/npm/upscaler@1.0.0-beta.19/+esm',
+  'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/+esm',
+  // High-quality 4x model files, including the entry point, model definition, and weights
+  'https://cdn.jsdelivr.net/npm/@upscalerjs/esrgan-slim@1.0.0-beta.12/4x/+esm',
+  'https://cdn.jsdelivr.net/npm/@upscalerjs/esrgan-slim@1.0.0-beta.12/4x/model.json',
+  'https://cdn.jsdelivr.net/npm/@upscalerjs/esrgan-slim@1.0.0-beta.12/4x/group1-shard1of1.bin',
 ];
 
 self.addEventListener('install', event => {
@@ -17,7 +25,7 @@ self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('Opened cache');
+        console.log('Opened cache, adding core and upscaler assets for offline use.');
         return cache.addAll(urlsToCache);
       })
   );
@@ -63,7 +71,7 @@ self.addEventListener('fetch', event => {
     );
 });
 
-// Clean up old caches
+// Clean up old caches on activation
 self.addEventListener('activate', event => {
   const cacheWhitelist = [CACHE_NAME];
   event.waitUntil(

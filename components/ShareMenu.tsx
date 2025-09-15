@@ -2,7 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import React, { useState } from 'react';
+import React from 'react';
 import { useStore } from '../store';
 import { Dialog } from './ui/dialog';
 import { Button } from './ui/button';
@@ -17,8 +17,7 @@ async function dataURLtoBlob(dataurl: string): Promise<Blob> {
 }
 
 const ShareMenu: React.FC = () => {
-    const { isShareMenuOpen, closeShareMenu, shareContent } = useStore();
-    const [isUpscaling, setIsUpscaling] = useState(false);
+    const { isShareMenuOpen, closeShareMenu, shareContent, setUpscalingState, isUpscaling, setUpscalingProgress } = useStore();
 
     if (!isShareMenuOpen || !shareContent) return null;
 
@@ -57,31 +56,33 @@ const ShareMenu: React.FC = () => {
             return;
         }
         
-        setIsUpscaling(true);
+        setUpscalingState(true);
         let scale = 2; // default
-        const toastId = toast.loading('Starting upscaler...');
         try {
             const { instance: upscaler, scale: modelScale } = await getUpscaler();
             scale = modelScale;
-            toast.loading(`Upscaling image (${scale}x)... (0%)`, { id: toastId });
             
             const upscaledUrl = await upscaler.upscale(url, {
                 output: 'base64',
-                patchSize: 64,
+                patchSize: 32,
                 padding: 2,
-                progress: (p) => toast.loading(`Upscaling... ${Math.round(p * 100)}%`, { id: toastId })
+                progress: (p) => {
+                    setUpscalingProgress(p * 100);
+                    // Yield to main thread to keep UI responsive
+                    return new Promise(resolve => setTimeout(resolve, 0));
+                },
             });
-            toast.success('Upscaling complete!', { id: toastId });
+            toast.success('Enhancement complete! Downloading...');
 
             const link = document.createElement('a');
             link.href = upscaledUrl;
-            link.download = `barber-booth-pro-${title.toLowerCase()}-upscaled.jpg`;
+            link.download = `barber-booth-pro-${title.toLowerCase()}-enhanced.jpg`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
         } catch (error) {
-            console.error("Upscaling failed:", error);
-            toast.error(`Upscaling failed (${scale}x). Downloading original image.`, { id: toastId });
+            console.error("Enhancement failed:", error);
+            toast.error(`Enhancement failed (${scale}x). Downloading original image.`);
             // Fallback to downloading original image
             const link = document.createElement('a');
             link.href = url;
@@ -90,7 +91,7 @@ const ShareMenu: React.FC = () => {
             link.click();
             document.body.removeChild(link);
         } finally {
-            setIsUpscaling(false);
+            setUpscalingState(false);
         }
     };
 
@@ -127,7 +128,7 @@ const ShareMenu: React.FC = () => {
                      </Button>
                      <Button onClick={handleDownload} variant="primary" disabled={isUpscaling}>
                         <Download className="mr-2 h-4 w-4" />
-                        {isUpscaling ? 'Upscaling...' : 'Download'}
+                        {isUpscaling ? 'Enhancing...' : 'Download & Enhance'}
                      </Button>
                  </div>
             </div>

@@ -2,14 +2,15 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import React from 'react';
+import React, { useState } from 'react';
 import { cn } from '../lib/utils';
 import { Card, CardContent } from './ui/card';
 import LoadingSpinner from './LoadingSpinner';
 import { Button } from './ui/button';
-import { Download, X, AlertTriangle, Share2 } from 'lucide-react';
+import { Download, X, AlertTriangle, Share2, Move3d, Video } from 'lucide-react';
 import { useStore } from '../store';
 import { attemptShare } from '../lib/shareUtils';
+import InteractiveVideoPlayer from './InteractiveVideoPlayer';
 
 type VideoStatus = 'generating' | 'done' | 'error';
 
@@ -31,6 +32,7 @@ const ErrorDisplay: React.FC<{ message: string }> = ({ message }) => (
 
 const VideoPreview: React.FC<VideoPreviewProps> = ({ status, progressMessage, videoUrl, error, onClear }) => {
     const { openShareMenu } = useStore();
+    const [isInteractive, setIsInteractive] = useState(false);
 
     const handleDownload = () => {
         if (!videoUrl) return;
@@ -62,11 +64,20 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ status, progressMessage, vi
                         </div>
                     )}
                     {status === 'error' && <ErrorDisplay message={error} />}
-                    {status === 'done' && videoUrl && <video src={videoUrl} controls autoPlay loop muted className="w-full h-full object-contain" />}
+                    {status === 'done' && videoUrl && (
+                        isInteractive ? (
+                            <InteractiveVideoPlayer videoUrl={videoUrl} />
+                        ) : (
+                            <video src={videoUrl} controls autoPlay loop muted className="w-full h-full object-contain" />
+                        )
+                    )}
 
                     <div className="absolute top-2 right-2 z-20 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         {status === 'done' && videoUrl && (
                             <>
+                                <Button onClick={() => setIsInteractive(!isInteractive)} variant="secondary" size="icon" title={isInteractive ? "Standard Player" : "Interactive 3D Player"}>
+                                    {isInteractive ? <Video className="h-4 w-4" /> : <Move3d className="h-4 w-4" />}
+                                </Button>
                                 <Button onClick={handleShare} variant="secondary" size="icon" title="Share"><Share2 className="h-4 w-4" /></Button>
                                 <Button onClick={handleDownload} variant="secondary" size="icon" title="Download"><Download className="h-4 w-4" /></Button>
                             </>

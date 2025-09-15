@@ -1,0 +1,216 @@
+
+# Implementation Guide: Barber Booth Pro v2.0 (Full-Stack Migration) & v3.0 (Next-Gen Features)
+
+**Document ID**: BBP-IMPL-V2.0
+**Date**: 2024-07-18
+**Status**: Ready for Execution
+**Input**: `designspec.txt` V4.0, Existing Client-Side Prototype
+
+## 1. Execution Flow (Guide Purpose)
+This document provides the complete plan for migrating Barber Booth Pro from a client-side prototype to a secure, scalable, and production-ready full-stack application (v2.0), and outlines the roadmap for next-generation features (v3.0). It is structured to be executed by a development team or an AI coding agent.
+
+1.  **Read the Constitution (Section 2)** to understand the non-negotiable architectural principles.
+2.  **Review the Technical Context & Target Architecture (Sections 3 & 4)** to understand the "what" and "why" of the new stack.
+3.  **Execute the Phased Implementation Plan for v2.0 (Section 5)** by completing the numbered tasks in the specified order.
+4.  **Plan for the Future Evolution of v3.0 (Section 6)**, which includes advanced features like true 3D previews.
+
+---
+
+## 2. The Constitution: Core Principles for v2.0+
+
+*This section supersedes all previous architectural assumptions. All work must comply with these principles.*
+
+**I. Security-First Architecture**:
+-   All calls to the Google Gemini API **MUST** be executed on the server-side. The API key **MUST NOT** be exposed to the client.
+-   User data and generated assets **MUST** be stored in a secure, managed backend (Supabase), not client-side `localStorage`.
+-   Authentication **MUST** be handled by Supabase Auth. All data access **MUST** be protected by Supabase Row Level Security (RLS) policies.
+
+**II. End-to-End Type Safety (NON-NEGOTIABLE)**:
+-   The T3 Stack (`create-t3-app`) will be the foundation.
+-   **tRPC** will be the exclusive method for client-server communication. There will be no traditional REST or GraphQL API endpoints.
+-   **Prisma** will be the ORM for all database interactions, ensuring type safety from the database schema to the frontend.
+
+**III. Component-Driven UI with `shadcn/ui`**:
+-   All UI components will be rebuilt or sourced from `shadcn/ui`. This ensures consistency, accessibility, and full developer control over the codebase.
+-   Styling will continue to use **Tailwind CSS**.
+
+**IV. Database as the Single Source of Truth**:
+-   **Supabase Postgres** is the canonical store for all user data, including generation history.
+-   `localStorage` will be deprecated for history storage and used only for non-essential client-side state caching if necessary.
+
+**V. Incremental & Verifiable Migration**:
+-   The migration will follow the phased plan below. Each phase should result in a testable, verifiable milestone.
+-   Test-driven principles are encouraged: write tests for tRPC procedures to validate logic before connecting the frontend.
+
+---
+
+## 3. Technical Context (The "Why")
+
+-   **Target Framework**: Next.js (App Router)
+-   **UI Components**: shadcn/ui on Tailwind CSS
+-   **Backend-as-a-Service (BaaS)**: Supabase (Postgres Database, Auth, Storage)
+-   **API Layer**: tRPC (for end-to-end type-safe APIs)
+-   **Database ORM**: Prisma
+-   **State Management**: Zustand (for client-side UI state only)
+-   **Deployment Target**: Vercel (or similar Jamstack hosting provider)
+
+---
+
+## 4. Target Project Structure (v2.0)
+
+```
+/
+├── prisma/
+│   └── schema.prisma        # Database schema definition
+├── public/
+├── src/
+│   ├── app/                 # Next.js App Router
+│   │   ├── api/
+│   │   │   └── trpc/[trpc]/ # tRPC API endpoint
+│   │   │       └── route.ts
+│   │   ├── layout.tsx
+│   │   └── page.tsx         # Main application page
+│   ├── components/          # React components (rebuilt with shadcn/ui)
+│   │   └── ui/              # shadcn/ui components
+│   ├── lib/                 # Utility functions (cn, upscaler, etc.)
+│   ├── server/
+│   │   ├── api/
+│   │   │   ├── root.ts      # Main tRPC router
+│   │   │   └── routers/
+│   │   │       └── hairstyle.ts # tRPC procedures for AI generation
+│   │   └── db.ts            # Prisma client instance
+│   ├── store/
+│   │   └── index.ts         # Zustand store (client UI state)
+│   └── env.mjs              # Environment variable validation (t3-env)
+├── .env                     # Environment variables
+└── next.config.mjs
+```
+
+---
+
+## 5. Phased Implementation Plan (v2.0 Migration)
+
+### Phase 0: Setup & Scaffolding
+*Goal: Create a stable, configured foundation for the new application.*
+
+-   [ ] **T001**: Initialize a new project using `create-t3-app`. Select Next.js, tRPC, Prisma, and Tailwind CSS.
+-   [ ] **T002**: Create a new project in Supabase.
+-   [ ] **T003**: Configure Supabase project: enable Email, Google, and Facebook authentication providers.
+-   [ ] **T004**: Populate `.env` file with Supabase Project URL, Anon Key, and Database URL. Also add the `GEMINI_API_KEY`.
+-   [ ] **T005**: Define the database schema in `prisma/schema.prisma`. This must include models for `User`, `GenerationHistory`, and relationships.
+    ```prisma
+    // Example Schema
+    model User {
+      id String @id @default(cuid())
+      email String? @unique
+      // ... other user fields
+      generations GenerationHistory[]
+    }
+
+    model GenerationHistory {
+      id String @id @default(cuid())
+      userId String
+      user User @relation(fields: [userId], references: [id])
+      // ... fields from designspec.txt HistoryItem
+      createdAt DateTime @default(now())
+    }
+    ```
+-   [ ] **T006**: Run `npx prisma db push` to sync the schema with the Supabase database.
+-   [ ] **T007**: Configure Supabase Storage. Create a public bucket for generated images with appropriate access policies.
+-   [ ] **T008**: **CRITICAL**: Implement Row Level Security (RLS) policies on all tables in Supabase. Users should only be able to access their own data.
+
+### Phase 1: Backend Migration (API Layer)
+*Goal: Move all business logic and sensitive operations to the server.*
+
+-   [ ] **T009**: Create the hairstyle tRPC router in `src/server/api/routers/hairstyle.ts`.
+-   [ ] **T010**: Implement the `generateFourUp` tRPC mutation. This procedure will:
+    -   Be a protected procedure (requires authenticated user).
+    -   Accept user image (as base64 string), description, etc. as input.
+    -   Convert base64 to a buffer and call the Gemini API.
+    -   Upload the resulting image buffer to Supabase Storage.
+    -   Return the public URL of the generated image.
+-   [ ] **T011**: Implement the `generateVideo` tRPC mutation. Logic mirrors `generateFourUp`.
+-   [ ] **T012**: Implement the `getHistory` tRPC query. This procedure will:
+    -   Be a protected procedure.
+    -   Fetch all `GenerationHistory` records for the current user from the database using Prisma.
+-   [ ] **T013**: Implement the `saveToHistory` tRPC mutation. This procedure will:
+    -   Be a protected procedure.
+    -   Take all generation data as input.
+    -   Create a new `GenerationHistory` record in the database linked to the current user.
+-   [ ] **T014** [P]: Write basic integration tests for the new tRPC procedures to ensure they function correctly before connecting the UI.
+
+### Phase 2: Frontend Migration & Refactoring
+*Goal: Rebuild the UI with the new component library and connect it to the type-safe backend.*
+
+-   [ ] **T015**: Set up the tRPC client in `src/app/_trpc/client.ts` and wrap the root layout in `_trpc/Provider`.
+-   [ ] **T016**: Rebuild the `LoginScreen.tsx` component to use the Supabase Auth client (`@supabase/auth-helpers-nextjs`).
+-   [ ] **T017**: Rebuild core UI components (`Card`, `Button`, `Dialog`, etc.) by installing them from `shadcn/ui`.
+-   [ ] **T018**: Refactor `App.tsx` (now `src/app/page.tsx`).
+    -   Remove all direct calls to `geminiService.ts`.
+    -   Use the tRPC hooks: `api.hairstyle.generateFourUp.useMutation`, `api.hairstyle.getHistory.useQuery`, etc.
+-   [ ] **T019**: Refactor the Zustand store (`src/store/index.ts`).
+    -   Remove all state related to persistent data (e.g., `generationHistory`). This data will now be managed by `react-query` via tRPC.
+    -   The store should now only manage ephemeral, client-side UI state (e.g., `isHistoryPanelOpen`, `upscalingProgress`).
+-   [ ] **T020**: Reimplement the image upload flow. This should not upload to Supabase directly from the client but instead send the base64-encoded image to the tRPC backend procedure.
+-   [ ] **T021** [P]: Migrate utility functions (`albumUtils.ts`, `shareUtils.ts`, etc.) into the new `src/lib/` directory and update imports.
+-   [ ] **T022**: Ensure the client-side upscaler (`lib/upscaler.ts`) remains functional for high-quality downloads.
+
+### Phase 3: Polish & Deployment
+*Goal: Ensure the application is production-ready, performant, and correctly configured.*
+
+-   [ ] **T023**: Configure environment variables on Vercel. This includes `GEMINI_API_KEY`, all `SUPABASE_*` variables, and the `DATABASE_URL` for Prisma.
+-   [ ] **T024**: Deploy the application to Vercel.
+-   [ ] **T025**: Conduct end-to-end testing on the deployed application.
+    -   Verify authentication flow and RLS policies.
+    -   Verify text-to-hairstyle generation.
+    -   Verify image-to-hairstyle generation.
+    -   Verify video generation.
+    -   Verify history is saved and fetched correctly from the database.
+-   [ ] **T026** [P]: Review and update `readme.txt` and `designspec.txt` to reflect the new full-stack architecture, removing warnings about the client-side prototype.
+-   [ ] **T027**: Deprecate the old prototype codebase.
+
+---
+
+## 6. Phase 4: Future Evolution & Advanced Features (v3.0 Roadmap)
+
+*This section outlines future, high-impact features to be developed after the v2.0 migration is stable.*
+
+### 6.1. Advanced 3D Previews with Three.js
+*Vision: Replace the 360° video with a fully interactive, real-time 3D model of the user's head with the generated hairstyle. This is a significant R&D effort.*
+
+-   [ ] **R&D-1: 2D-to-3D Head Mesh Generation**:
+    -   **Task**: Research and prototype a method to generate a textured 3D head model from the user's single uploaded 2D photograph.
+    -   **Potential Technologies**: Investigate AI models specialized in 3D reconstruction (e.g., PIFuHD, EG3D) or services that offer this as an API.
+-   [ ] **R&D-2: 3D Hairstyle Generation**:
+    -   **Task**: Research and prototype a method to generate a 3D asset of the hairstyle that can be attached to the head mesh.
+    -   **Potential Technologies**: Explore advanced generative techniques like Neural Radiance Fields (NeRFs) or 3D Gaussian Splatting, which can be trained to produce 3D representations from the multi-angle images we already generate.
+-   [ ] **INT-1: Three.js Scene Integration**:
+    -   **Task**: Build a React component using `@react-three/fiber` and `@react-three/drei` to render the combined 3D head and hair models.
+    -   **Features**: Implement orbit controls for rotation, dynamic studio lighting to flatter the model, and performance optimization (e.g., Draco compression, level-of-detail).
+
+### 6.2. Production Hardening & Observability
+*Goal: Ensure the application is reliable, maintainable, and provides insights into its usage.*
+
+-   [ ] **PROD-1**: Integrate an error tracking service like **Sentry** or **Logtail** to capture and report frontend and backend errors in real-time.
+-   [ ] **PROD-2**: Implement a **CI/CD pipeline** using GitHub Actions. The pipeline should automatically run linters, type checks, and integration tests on every pull request, and deploy to Vercel on merge to the `main` branch.
+-   [ ] **PROD-3**: Add **Analytics** to understand user behavior. Use a privacy-focused solution like Vercel Analytics or Plausible to track key events (e.g., generation started, video created, style shared).
+
+### 6.3. AI Feature Enhancements
+*Goal: Expand the creative capabilities of the core tool.*
+
+-   [ ] **FEAT-1: Style Mixing**: Allow users to upload two reference hairstyle images and use a slider to blend between them, creating a unique hybrid style.
+-   [ ] **FEAT-2: Accessory Addition**: Enhance the text prompt to allow users to add accessories like "with gold hoop earrings," "wearing sunglasses," or "add a beanie hat."
+-   [ ] **FEAT-3: Background Replacement**: Allow users to specify a background for their final portrait, such as "in front of the Eiffel Tower" or "in a cyberpunk city."
+
+### 6.4. Community & Monetization
+*Goal: Transform the tool into a platform and explore revenue streams.*
+
+-   [ ] **MON-1: Implement a Credit System**:
+    -   **Task**: Integrate **Stripe** for payments.
+    -   **Logic**: Give new users a set of free credits. High-quality image generations might cost 1 credit, and video generations might cost 5 credits. Users can purchase more credits.
+-   [ ] **COM-1: Build a Public Gallery**:
+    -   **Task**: Create a new section of the app that showcases the best user-generated creations.
+    -   **Logic**: Generations can only be added to the gallery if the user explicitly opts-in, ensuring privacy. Implement features like "likes" and sorting by "most popular."
+
+---
+*This guide is based on Constitution v2.0. Any deviation requires documented justification.*

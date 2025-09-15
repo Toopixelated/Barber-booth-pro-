@@ -1,169 +1,202 @@
-# Technical Specification: Barber Booth Pro
+# Design & Technical Specification: Barber Booth Pro
 
-**Document ID**: BBP-SPEC-V2.0
-**Author**: Sonoma AI Assistant
-**Status**: Implemented (Post-Fix)
-**Related Docs**: `readme.txt`, `workspace_context.txt`
+**Document ID**: BBP-SPEC-V4.0
+**Author**: Gemini AI Engineer
+**Status**: Live - Reflects Current Production Build
 
 ---
 
 ## 1. Overview & Core Mission
 
-Barber Booth Pro is a client-only Progressive Web App (PWA) designed to provide users with a photorealistic, multi-angle preview of a new hairstyle using generative AI. The application prioritizes a seamless, mobile-first user experience, high-quality visual output, and robust error handling within the constraints of a browser-based environment.
+Barber Booth Pro is a Progressive Web App (PWA) that provides users with a photorealistic, multi-angle preview of a new hairstyle. The application interfaces directly with the Google Gemini API from the client's browser and stores all user history locally for a seamless, private experience.
 
-### 1.1. Core Principles (Constitution)
-- **PWA-First**: The application must be installable, function offline where possible (core shell), and feel native.
-- **Simplicity**: Maintain a single, client-side codebase. Prefer stable, built-in solutions over complex, external dependencies (e.g., default upscaler model as a fallback).
-- **Test-First Mindset**: Features are designed with testability in mind, covering primary user stories, edge cases (e.g., network failure, hardware limitations), and performance.
-- **Observability**: Provide clear, real-time feedback to the user for all asynchronous operations (e.g., progress toasts, loading states, descriptive errors).
-
-### 1.2. Technology Stack
-- **Language**: TypeScript / React 19
-- **State Management**: Zustand v4.5.5
-- **AI Services**:
-    - **Google Gemini API**: `@google/genai` v1.14.0
-    - **Image Generation Model**: `gemini-2.5-flash-image-preview`
-    - **Video Generation Model**: `veo-2.0-generate-001`
-    - **Text Suggestion Model**: `gemini-2.5-flash`
-- **Image Upscaling**:
-    - **Library**: `upscaler` v1.0.0-beta.19
-    - **Backend**: `@tensorflow/tfjs` v4.20.0 (WebGL with CPU fallback)
-    - **Dynamic Model**: `@upscalerjs/esrgan-slim` v1.0.0-beta.12 (4x scale)
-- **Styling & UI**: Tailwind CSS, Framer Motion, Radix UI, React Colorful, `react-image-crop`
-- **Environment**: Sandboxed IDE with `importmap`, Client-only.
+**Mission**: To empower users to visualize hairstyle changes with confidence and creativity, leveraging the power of generative AI in an accessible, high-performance, and secure client-side application.
 
 ---
 
-## 2. Feature Specifications
+## 2. Core Principles (The Constitution)
 
-### 2.1. Feature: PWA & Core App Shell
-- **Execution Flow**:
-    1. `index.html` loads the application and registers the service worker via a script tag pointing to `./service-worker.js`.
-    2. The `service-worker.js` script caches core assets (`/`, `./index.html`, `./index.css`, `./index.tsx`) upon installation.
-    3. In `App.tsx`, a `useEffect` hook listens for the `beforeinstallprompt` event, storing it in the Zustand store to be used by the `Footer.tsx` component.
-- **User Scenarios & Testing**:
-    - **Given** a user visits for the first time on a supported browser, **When** the app loads, **Then** the "Home Screen" button in the footer is enabled.
-    - **Given** the PWA is installed and the user is offline, **When** the app is launched, **Then** the core UI shell successfully loads from the cache.
-- **Requirements**:
-    - **FR-PWA-01**: The application MUST be installable via the `./manifest.json` file, with all paths specified relatively to support the sandboxed environment.
-    - **FR-PWA-02**: The service worker MUST cache the core application shell for basic offline functionality.
-    - **NFR-PWA-01**: Initial application load time MUST be under 3 seconds on a standard 4G connection.
-
-### 2.2. Feature: Image Input & Editing
-- **Execution Flow**:
-    1. User initiates an upload, triggering the `isUploadOptionsOpen` modal in `App.tsx`.
-    2. User selects "From File" (triggering a hidden `<input>`) or "Take Photo" (mounting `CameraCapture.tsx`).
-    3. The captured image data URL is passed to the `ImageEditor.tsx` modal.
-    4. User crops the image using `react-image-crop` (enforced 1:1 aspect ratio) and can apply rotation from -45° to +45°.
-    5. On save, the cropped JPEG data URL is saved to the Zustand store via `setUploadedImage`.
-- **User Scenarios & Testing**:
-    - **Given** a user selects a rectangular photo, **When** the editor opens, **Then** a 1:1 crop overlay is centered on the image.
-    - **Given** a user on a mobile device has multiple cameras, **When** in `CameraCapture`, **Then** the "Switch Camera" button cycles through available video devices.
-- **Requirements**:
-    - **FR-IMG-01**: The application MUST accept `image/png`, `image/jpeg`, and `image/webp` file types.
-    - **FR-IMG-02**: The image editor MUST enforce a 1:1 aspect ratio for all user photos.
-    - **FR-IMG-03**: Camera access permissions MUST be handled gracefully, displaying a user-friendly error message if denied.
-
-### 2.3. Feature: AI Hairstyle Generation (4-Up Grid)
-- **Execution Flow**:
-    1. User provides input and clicks "Generate Pro", triggering `runGenerationSequence` in `App.tsx`.
-    2. The app state is set to `generating-results`, and `generateFourUpImage` in `geminiService.ts` is called.
-    3. The service resizes input images to a max of 1024px, constructs a detailed prompt specifying a 2x2 grid output, and calls the Gemini API.
-    4. The API call is wrapped in `callGeminiWithRetry`, which attempts up to 3 retries with exponential backoff on internal server errors.
-    5. The returned 2x2 grid image URL is processed by `cropFourUpSheet` in `lib/albumUtils.ts`, which slices it into four quadrant images.
-    6. The four new image URLs are saved to the Zustand store, and `saveToHistory` is called.
-- **User Scenarios & Testing**:
-    - **Given** a user provides only a hex color (e.g., `#be185d`), **When** generation runs, **Then** the prompt is framed to only change the hair color, preserving the original style.
-    - **Given** the Gemini API returns a 500 error, **When** generating, **Then** the service retries automatically before displaying an error to the user.
-- **Requirements**:
-    - **FR-GEN-01**: The system MUST make a single API call to `gemini-2.5-flash-image-preview` to generate all four views for efficiency.
-    - **FR-GEN-02**: The prompt engineering MUST include the "Identity Preservation" critical rule to maintain the user's likeness.
-    - **FR-GEN-03**: The service layer MUST implement a retry mechanism for transient server-side API errors.
-    - **NFR-GEN-01**: The entire image generation and cropping process should complete in under 30 seconds.
-
-### 2.4. Feature: High-Resolution Upscaling & Download
-- **Execution Flow**:
-    1. User clicks a "Download" button, triggering a handler like `handleDownload` in `PolaroidCard.tsx`.
-    2. The handler calls `getUpscaler` from `lib/upscaler.ts`, which manages a singleton `Upscaler.js` instance.
-    3. `getUpscaler` initializes the TensorFlow.js backend (preferring WebGL, with a CPU fallback) and dynamically imports the 4x ESRGAN-Slim model. If the model fails to load, it falls back to the default built-in 2x model.
-    4. The handler calls `upscaler.upscale()` with options `{ output: 'base64', patchSize: 64, padding: 2, progress: ... }`.
-    5. The `progress` callback updates a `react-hot-toast` notification in real-time.
-    6. On completion, the upscaled base64 URL is used to create and click a download link. If upscaling fails, the original image is downloaded instead.
-- **User Scenarios & Testing**:
-    - **Given** a 1024x1024 image, **When** a user clicks "Download", **Then** a 4096x4096 (with 4x model) or 2048x2048 (with 2x fallback model) image is downloaded with a progress toast.
-    - **Given** a user downloads the 4-up sheet (e.g., 2048x2048px), **When** upscaling starts, **Then** the process completes without a WebGL texture limit error due to patch processing.
-- **Requirements**:
-    - **FR-UP-01**: The application MUST upscale images using `patchSize` to prevent browser errors and enable progress tracking.
-    - **FR-UP-02**: The system MUST provide real-time progress feedback to the user via a toast notification.
-    - **FR-UP-03**: The system MUST gracefully fall back to downloading the original image if the upscaling process fails.
-    - **NFR-UP-01**: Upscaling of a single 1024x1024 image should complete in under 15 seconds on a mid-range device with WebGL.
-
-### 2.5. Feature: 360° Video Generation
-- **Execution Flow**:
-    1. User clicks "Create 360° Video", triggering `handleGenerateVideoClick` in `App.tsx`.
-    2. The `generateHairstyleVideo` service in `geminiService.ts` is called with the generated "front" view image.
-    3. The service initiates the generation with `veo-2.0-generate-001` and enters a `while` loop, polling the operation status every 10 seconds.
-    4. A series of descriptive progress messages are passed back to the UI via an `onProgress` callback.
-    5. When the operation is `done`, the final video file is fetched, converted to a blob URL, and saved in the Zustand store.
-- **User Scenarios & Testing**:
-    - **Given** all four images are generated, **When** a user clicks "Create 360° Video", **Then** the `VideoPreview` component appears and cycles through progress messages.
-    - **Given** the video generation fails at the API level, **When** the operation completes, **Then** the `VideoPreview` component displays a specific error message from the API.
-- **Requirements**:
-    - **FR-VID-01**: Video generation MUST use the AI-generated "front" view image as its primary visual input.
-    - **FR-VID-02**: The UI MUST display a sequence of progress messages to the user during the entire generation process.
-    - **NFR-VID-01**: The UI must clearly communicate that video generation is a lengthy process (several minutes) to manage user expectations.
-
-### 2.6. Feature: History Management
-- **Execution Flow**:
-    1. Upon successful generation, `saveToHistory` in `App.tsx` is called.
-    2. All input and generated images are compressed to a maximum dimension of 512px using `compressImageForStorage`.
-    3. A new `HistoryItem` object is created and prepended to the `generationHistory` array in the Zustand store, which persists to `localStorage`.
-    4. The user can open the `HistoryPanel`, view past generations, and restore a session by clicking "Restore", which re-populates the entire application state.
-- **User Scenarios & Testing**:
-    - **Given** a user completes a generation, **When** they reload the app, **Then** their previous session is visible in the History Panel.
-    - **Given** a user clicks "Restore" on a history item, **When** the main view loads, **Then** it displays the restored images and inputs.
-- **Requirements**:
-    - **FR-HIST-01**: The generation history MUST be automatically saved upon successful completion of a 4-up grid or video.
-    - **FR-HIST-02**: Images stored in history MUST be compressed to manage `localStorage` quota.
-    - **FR-HIST-03**: The application MUST cap the history at 50 items to prevent storage overflow.
-    - **FR-HIST-04**: A one-time migration logic MUST run on app start to merge history from a plausible old `localStorage` key.
+-   **Client-Side First**: All core logic, from AI API calls to image processing and data storage, is executed within the user's browser. This prioritizes user privacy and reduces server-side complexity.
+-   **Direct AI Integration**: The application uses the `@google/genai` SDK to make all AI calls directly from the client, ensuring a responsive and direct connection to the generative models.
+-   **PWA-First**: The application must be installable, provide a native-like experience, and cache its core shell and essential assets (like upscaler models) for offline access.
+-   **Robust & Performant**: The app must provide clear, real-time feedback for all asynchronous operations (API calls, client-side upscaling) and gracefully handle potential failures with clear error messaging and recovery options.
+-   **Security by Design**: User authentication is mandatory. The app uses Firebase for secure, client-side session management. (Note: The prototype's client-side API key is a known risk addressed in Section 7).
 
 ---
 
-## 3. Proposal (Spec Kit Style)
-### Problem
-Users struggle to visualize how a new hairstyle will look on them from all angles before committing to a change. Existing solutions are often unrealistic, limited to 2D, or lack personalization.
+## 3. User Personas & Scenarios
 
-### Goals
-- To provide a photorealistic, multi-angle AI preview of any described hairstyle on a user's own photo.
-- To create a fast, reliable, and mobile-first PWA that is installable and works well on a variety of devices.
-- To offer a high-quality user experience with features like high-resolution downloads, 360° video, and session history.
+### 3.1. Primary Persona: "Alex, the Style Explorer"
 
-### Non-Goals
-- To become a professional salon management tool.
-- To support server-side rendering or user accounts (the app is entirely client-side).
-- To offer real-time hair tracking via a live camera feed.
+-   **Age**: 22-35
+-   **Goal**: Wants to experiment with a bold new hairstyle but is hesitant about the commitment. They need to visualize the change from all angles before visiting a salon.
+-   **Pain Point**: Standard hairstyle apps are unrealistic. Finding reference photos that match their face shape is difficult.
+
+### 3.2. User Stories & Acceptance Criteria
+
+1.  **Story: Text-to-Hairstyle Creation**
+    -   **As** Alex, **I want to** upload my photo and describe a hairstyle in words, **so that I can** see a creative new look on myself.
+    -   **Acceptance Criteria**:
+        -   Given Alex has uploaded a photo,
+        -   When they type "a vibrant, rainbow-colored mohawk" and click "Generate",
+        -   Then the system generates four images (front, left, right, back) showing Alex with that hairstyle, while preserving their facial features.
+
+2.  **Story: Image-to-Hairstyle (Style Transfer)**
+    -   **As** Alex, **I want to** provide a reference photo of a hairstyle I like, **so that I can** see exactly how that specific style would look on me.
+    -   **Acceptance Criteria**:
+        -   Given Alex has uploaded their photo and a reference photo,
+        -   When they add a modification like "make it shoulder-length" and click "Generate",
+        -   Then the system generates four views of Alex with the reference hairstyle, adjusted by the modification.
+
+3.  **Story: 360° Video Preview**
+    -   **As** Alex, **I want to** generate a 360-degree video of my new look, **so that I can** get a realistic, dynamic preview.
+    -   **Acceptance Criteria**:
+        -   Given a successful 4-up image generation,
+        -   When Alex clicks "Create 360° Video",
+        -   Then the system generates a seamless, looping video showing a turntable view of their head with the new hairstyle.
+
+4.  **Story: High-Quality Downloads & Sharing**
+    -   **As** Alex, **I want to** download a high-resolution version of my results, **so that I can** share it with my stylist or friends.
+    -   **Acceptance Criteria**:
+        -   Given a successful generation,
+        -   When Alex clicks "Download",
+        -   Then the system enhances the image(s) client-side and initiates a download of a high-quality JPEG.
+
+5.  **Story: Session Restoration**
+    -   **As** Alex, **I want** my previous creations to be saved, **so that I can** revisit and compare them later.
+    -   **Acceptance Criteria**:
+        -   Given Alex has completed a generation,
+        -   When they close and reopen the app on the same device,
+        -   Then they can open the History Panel and restore the previous session, including all generated images and inputs.
 
 ---
 
-## 4. Risks & Mitigations
-- **Risk**: API changes or model deprecation by Google.
-  - **Mitigation**: All API logic is isolated in `services/geminiService.ts`, creating a single point of adaptation.
-- **Risk**: Hitting `localStorage` quota limits due to history.
-  - **Mitigation**: History is capped at 50 items, all images are aggressively compressed, and a "Clear History" option is provided.
-- **Risk**: Performance issues on low-end devices with WebGL/TensorFlow.js.
-  - **Mitigation**: The upscaler explicitly manages the TF.js backend (WebGL with CPU fallback) and uses patch processing to reduce memory pressure.
-- **Risk**: CDN instability for dependencies like the upscaler model.
-  - **Mitigation**: The `lib/upscaler.ts` utility includes a try/catch block to fall back to a stable, built-in model if the dynamically imported model fails.
+## 4. Feature Specifications & Requirements
+
+### 4.1. Authentication
+-   **FR-AUTH-01**: Users MUST sign up/sign in via Email/Password, Google, or Facebook.
+-   **FR-AUTH-02**: The user's session MUST persist across page reloads via Firebase's client-side persistence.
+-   **FR-AUTH-03**: The UI MUST provide clear loading and error states for all authentication actions.
+
+### 4.2. Image Input & Preparation
+-   **FR-IMG-01**: Users MUST be able to upload an image from their device's file system.
+-   **FR-IMG-02**: Users MUST be able to capture a photo using their device's camera.
+-   **FR-IMG-03**: An integrated cropping tool MUST be presented after image selection, enforcing a 1:1 aspect ratio.
+-   **FR-IMG-04**: The cropper MUST allow for image rotation.
+-   **NFR-IMG-01**: The camera interface MUST support switching between front and rear cameras if available.
+
+### 4.3. Hairstyle Generation
+-   **FR-GEN-01**: The system MUST accept a text description for a hairstyle.
+-   **FR-GEN-02**: The system MUST accept a reference image for a hairstyle.
+-   **FR-GEN-03**: The system MUST accept a hexadecimal color code to be applied to the hairstyle.
+-   **FR-GEN-04**: The system MUST accept text modifications when a reference image is used.
+-   **FR-GEN-05**: The system MUST generate a single 2x2 grid image containing four views: Front, Left Side, Right Diagonal, and Back.
+-   **FR-GEN-06**: The client application MUST crop the 2x2 grid into four individual images for display.
+-   **NFR-GEN-01 (CRITICAL)**: The user's facial identity, features, and skin tone MUST be preserved across all generated angles. The result must be an *edit*, not a replacement.
+-   **NFR-GEN-02**: The UI MUST display per-angle status indicators (pending, done, error) and dynamic loading messages during generation.
+
+### 4.4. 360° Video Generation
+-   **FR-VID-01**: The system MUST generate a video using the AI-generated 'front' view image as the primary input.
+-   **FR-VID-02**: The generated video MUST be downloadable as an MP4 file.
+-   **FR-VID-03**: The UI MUST feature an interactive 3D player, allowing the user to scrub through the video by dragging horizontally.
+-   **NFR-VID-01**: The generated video MUST be a seamless, 360-degree loop.
+-   **NFR-VID-02**: The UI MUST clearly communicate that video generation is a lengthy process (e.g., "This can take a few minutes") to manage user expectations.
+
+### 4.5. Image Enhancement (Upscaling)
+-   **FR-UP-01**: The system MUST provide an option to download an enhanced (upscaled) 4-up sheet.
+-   **FR-UP-02**: The system MUST provide an option to download an enhanced individual angle image.
+-   **FR-UP-03**: A standalone tool MUST be available to upscale any user-provided image, independent of the hairstyle workflow.
+-   **NFR-UP-01**: All upscaling operations MUST be performed on the client-side using Upscaler.js and the TensorFlow.js WebGL backend (with a CPU fallback).
+-   **NFR-UP-02**: The UI MUST display real-time progress (e.g., a percentage) during client-side upscaling.
+
+### 4.6. History Management
+-   **FR-HIST-01**: All completed generations (including images and video URLs) MUST be automatically saved to the user's local history.
+-   **FR-HIST-02**: Users MUST be able to restore a previous session from the history panel, repopulating the entire application state.
+-   **FR-HIST-03**: Users MUST be able to filter history by type (All, Favorites, Text-based, Image-based) and by a date range.
+-   **FR-HIST-04**: Users MUST be able to mark/unmark history items as favorites.
+-   **FR-HIST-05**: Users MUST be able to clear their entire local history after a confirmation prompt.
+
+### 4.7. PWA & Sharing
+-   **FR-PWA-01**: The application MUST be installable to a user's home screen via the `manifest.json` file.
+-   **FR-PWA-02**: The `service-worker.js` MUST cache the core application shell and all necessary upscaler model files for offline access.
+-   **FR-SHARE-01**: The system MUST allow sharing of generated images and videos using the Web Share API where available, with a fallback to a custom share menu.
 
 ---
 
-## 5. Progress Tracking & Next Steps
-- [x] PWA shell and installability implemented.
-- [x] Core image upload, editing, and AI generation flow complete.
-- [x] Robust, multi-layered upscaling with fallbacks and patch processing is stable.
-- [x] Video generation with polling is functional.
-- [x] Local storage history with compression and restoration is implemented.
-- [ ] **Next**: Implement end-to-end tests (e.g., using Cypress or Playwright) for critical user flows.
-- [ ] **Next**: Investigate caching upscaler model files in the service worker for improved offline performance.
-- [ ] **Future**: Explore advanced editing tools (in-painting/out-painting) for hairstyle modifications.
+## 5. AI Model & Prompt Specification
+
+This section is the canonical source for all AI interactions. The client-side code in `services/geminiService.ts` MUST adhere to these structures.
+
+### 5.1. Image Generation (`gemini-2.5-flash-image-preview`)
+-   **Task Type**: Multi-modal (Image + Text) Generation.
+-   **Core Logic**: The prompt structure changes based on whether a reference image is provided.
+
+    -   **Case A: Text-Only Prompt**
+        ```
+        Task: Photo Edit
+        Subject: Edit the person in the first provided photo to give them a "[hairstyleDescription with hairColor]" hairstyle.
+        Style & Quality: A photorealistic, high-detail, studio-quality portrait... [etc., with specific camera lens details].
+        Output Requirements: A single, clean 2x2 grid image showing four distinct angles... [etc.].
+        Critical Rules: The person's identity, facial features, and skin tone MUST be perfectly preserved...
+        Negative Prompts: Do not add any text, borders, watermarks...
+        ```
+
+    -   **Case B: Reference Image Prompt (Style Transfer)**
+        ```
+        Task: Style Transfer Photo Edit
+        Subject: Edit the person in the first provided photo. Transfer the hairstyle from the second reference image onto them.
+        Style & Quality: [Same as above]
+        Output Requirements: [Same as above]
+        Critical Rules: [Same as above]
+        [Optional] Use this description as a guide: "[hairstyleDescription]".
+        [Optional] Apply this specific modification to the reference style: "[hairstyleModification]".
+        Negative Prompts: [Same as above]
+        ```
+
+### 5.2. Video Generation (`veo-2.0-generate-001`)
+-   **Task Type**: Multi-modal (Image + Text) Video Generation.
+-   **Prompt Structure**: A "shot list" format is required.
+
+    ```
+    Title: High-End Salon Hairstyle Showcase (Portrait)
+    Subject: A photorealistic, ultra high-fidelity video of the person from the input image, showcasing their new hairstyle: "[hairstyleDescription]". The person's face, identity, and features must be perfectly preserved.
+    Shot Type: A smooth, continuous 360-degree orbital shot (turntable view)... creating a flawless loop.
+    Setting & Lighting: A clean, minimalist studio environment...
+    Style & Aesthetics: Cinematic, professional color grading, sharp focus... 720p resolution, 9:16 aspect ratio.
+    Negative Prompts: a bad video, blurry, grainy... speech, sound effects, loud music, landscape orientation, horizontal video.
+    ```
+
+### 5.3. Text Suggestion (`gemini-2.5-flash`)
+-   **Task Type**: Text Generation with structured output.
+-   **Configuration**: The API call MUST enforce a JSON response.
+    -   `responseMimeType`: "application/json"
+    -   `responseSchema`: Must be defined as an `ARRAY` of `STRING`s.
+
+---
+
+## 6. Technical Architecture
+
+-   **Frontend**: A single-page application built with React 19 and Vite. State is managed globally by Zustand.
+-   **Data Flow**:
+    1.  `AuthGate.tsx` handles the initial user authentication check.
+    2.  `App.tsx` serves as the main controller, orchestrating UI state based on `useStore`.
+    3.  User actions dispatch changes to the `store.ts`, which holds the single source of truth for the application state.
+    4.  Components subscribe to the store and re-render reactively.
+    5.  All interactions with the Gemini API are centralized in `services/geminiService.ts`.
+    6.  All interactions with `localStorage` are also centralized in `geminiService.ts` and managed via the Zustand store.
+
+---
+
+## 7. Risks & Mitigations
+
+-   **Risk (CRITICAL)**: **Client-Side API Key Exposure**.
+    -   **Description**: The current prototype architecture requires the Google Gemini API key to be embedded in the client-side code, making it publicly accessible. This is a major security vulnerability.
+    -   **Mitigation (For Production)**: For any public deployment, this architecture **MUST** be changed. All calls to the Gemini API must be moved to a secure backend proxy (e.g., a serverless function). The backend will hold the API key securely. The client will authenticate with the backend, which then makes the API calls on the user's behalf.
+
+-   **Risk**: Performance on low-end devices.
+    -   **Description**: Client-side AI, particularly image upscaling, can be resource-intensive.
+    -   **Mitigation**: The `lib/upscaler.ts` utility is highly robust: it explicitly manages the TF.js backend (WebGL with a CPU fallback) and uses patch processing to reduce memory pressure. This ensures maximum compatibility and prevents crashes on large images.
+
+-   **Risk**: User Data Loss.
+    -   **Description**: `localStorage` is not a permanent or synced data store. Clearing browser data will permanently delete all user history.
+    -   **Mitigation (For Production)**: For a production application, history should be migrated from `localStorage` to a secure, cloud-based database (e.g., Firestore) associated with the authenticated user's account.

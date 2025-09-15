@@ -53,9 +53,8 @@ const PolaroidCard: React.FC<ResultCardProps> = ({ imageUrl, caption, status, er
     const [isImageLoaded, setIsImageLoaded] = useState(false);
     const [loadingMessage, setLoadingMessage] = useState(PENDING_MESSAGES[0]);
     const [isComparing, setIsComparing] = useState(false);
-    const [isUpscaling, setIsUpscaling] = useState(false);
     const [, startTransition] = useTransition();
-    const { comparisonSourceImage, openShareMenu } = useStore();
+    const { comparisonSourceImage, openShareMenu, setUpscalingState, isUpscaling, setUpscalingProgress } = useStore();
 
     useEffect(() => {
         if (status === 'done' && imageUrl) setIsImageLoaded(false);
@@ -84,33 +83,33 @@ const PolaroidCard: React.FC<ResultCardProps> = ({ imageUrl, caption, status, er
 
     const handleDownload = async () => {
         if (!imageUrl || isUpscaling) return;
-        setIsUpscaling(true);
+        setUpscalingState(true);
         let scale = 2; // default
-        const toastId = toast.loading('Preparing download...');
         try {
             const { instance: upscaler, scale: modelScale } = await getUpscaler();
             scale = modelScale;
-            toast.loading(`Upscaling image (${scale}x)... (0%)`, { id: toastId });
             
             const upscaledDataUrl = await upscaler.upscale(imageUrl, {
                 output: 'base64',
-                patchSize: 64,
+                patchSize: 32,
                 padding: 2,
-                progress: (progress) => {
-                    toast.loading(`Upscaling... ${Math.round(progress * 100)}%`, { id: toastId });
-                }
+                progress: (p) => {
+                    setUpscalingProgress(p * 100);
+                    // Yield to main thread to keep UI responsive
+                    return new Promise(resolve => setTimeout(resolve, 0));
+                },
             });
-            toast.success('Upscaling complete!', { id: toastId });
+            toast.success('Enhancement complete! Downloading...');
             
             const link = document.createElement('a');
             link.href = upscaledDataUrl;
-            link.download = `barber-booth-pro-${angle}-upscaled.jpg`;
+            link.download = `barber-booth-pro-${angle}-enhanced.jpg`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
         } catch (error) {
-            toast.error(`Upscaling failed (${scale}x). Downloading original.`, { id: toastId });
-            console.error("Upscaling failed:", error);
+            toast.error(`Enhancement failed (${scale}x). Downloading original.`);
+            console.error("Enhancement failed:", error);
             // Fallback to downloading original image
             const link = document.createElement('a');
             link.href = imageUrl;
@@ -119,7 +118,7 @@ const PolaroidCard: React.FC<ResultCardProps> = ({ imageUrl, caption, status, er
             link.click();
             document.body.removeChild(link);
         } finally {
-            setIsUpscaling(false);
+            setUpscalingState(false);
         }
     };
     
@@ -177,7 +176,7 @@ const PolaroidCard: React.FC<ResultCardProps> = ({ imageUrl, caption, status, er
                     <div className="absolute top-2 right-2 z-20 flex flex-col gap-2 transition-opacity duration-300 opacity-0 group-hover:opacity-100">
                         <Button onClick={() => onRegenerate()} size="icon" variant="secondary" title="Regenerate"><Repeat className="w-4 h-4"/></Button>
                         {status === 'done' && <Button onClick={handleShare} size="icon" variant="secondary" title="Share"><Share2 className="w-4 h-4"/></Button>}
-                        {status === 'done' && <Button onClick={handleDownload} size="icon" variant="secondary" title="Download" disabled={isUpscaling}><Download className="w-4 h-4"/></Button>}
+                        {status === 'done' && <Button onClick={handleDownload} size="icon" variant="secondary" title="Download & Enhance" disabled={isUpscaling}><Download className="w-4 h-4"/></Button>}
                         {status === 'done' && angle === 'front' && <Button onClick={handleCompare} size="icon" variant={isComparing ? 'primary' : 'secondary'} title={isComparing ? 'Close Comparison' : 'Compare'}><GitCompareArrows className="w-4 h-4"/></Button>}
                     </div>
                 )}
